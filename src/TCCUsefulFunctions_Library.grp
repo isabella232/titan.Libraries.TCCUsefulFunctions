@@ -11,7 +11,7 @@
 //
 //  File:        TCCUsefulFunctions_Library.grp
 //  Description: FileGroup file for TCCUsefulFunctions ApplicationLibrary
-//  Rev:         R30A
+//  Rev:         R35B
 //  Prodnr:      CNL 113 472
 //
 ///////////////////////////////////////////////////////////////////////////////
@@ -50,6 +50,8 @@
     <File path="TCCMessageHandling_Functions.ttcn" />
     <File path="TCCSecurity.cc" />
     <File path="TCCSecurity_Functions.ttcn" />
+    <File path="TCCOpenSecurity.cc" />
+    <File path="TCCOpenSecurity_Functions.ttcn" />
     <File path="TCCSystem.cc" />
     <File path="TCCSystem_Functions.ttcn" />
     <File path="TCCTemplate_Functions.ttcn" />
@@ -57,8 +59,6 @@
     <File path="TCCTitanMetadata_Functions.ttcn" />
     <File path="aka_algorythm_set.c" />
     <File path="aka_algorythm_set.h" />
-    <File path="digcalc.c" />
-    <File path="digcalc.h" />
     <File path="zuc.c" />
     <File path="zuc.h" />
     <File path="snow3g.c" />

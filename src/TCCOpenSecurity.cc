@@ -10,7 +10,7 @@
 //
 //  File:               TCCOpenSecurity.cc
 //  Description:        TCC Useful Functions: Security Functions
-//  Rev:                R30A
+//  Rev:                R35B
 //  Prodnr:             CNL 113 472
 //
 ///////////////////////////////////////////////////////////////////////////////
@@ -25,8 +25,258 @@
 #include <openssl/sha.h>
 #include <openssl/rand.h>
 
-namespace TCCOpenSecurity__Functions {
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+#include <openssl/modes.h>
+#endif
 
+namespace TCCOpenSecurity__Functions {
+void tohex(unsigned char * Bin,unsigned char *Hex)
+{
+    unsigned short i;
+    unsigned char j;
+
+    for (i = 0; i < MD5_DIGEST_LENGTH; i++) {
+        j = (Bin[i] >> 4) & 0xf;
+        if (j <= 9)
+            Hex[i*2] = (j + '0');
+         else
+            Hex[i*2] = (j + 'a' - 10);
+        j = Bin[i] & 0xf;
+        if (j <= 9)
+            Hex[i*2+1] = (j + '0');
+         else
+            Hex[i*2+1] = (j + 'a' - 10);
+    };
+    Hex[MD5_DIGEST_LENGTH*2] = '\0';
+}
+
+void CalculateHA1(
+    const CHARSTRING& alg,
+    const CHARSTRING& username,
+    const CHARSTRING& realm,
+    const CHARSTRING& password,
+    const CHARSTRING& nonce,
+    const CHARSTRING& cnonce,
+    CHARSTRING& sessionkey
+    )
+{
+  MD5_CTX Md5Ctx;
+  unsigned char ha1[MD5_DIGEST_LENGTH];
+  unsigned char hexha1[MD5_DIGEST_LENGTH*2+1];
+
+  MD5_Init(&Md5Ctx);
+  MD5_Update(&Md5Ctx, (const char*)username, username.lengthof());
+  MD5_Update(&Md5Ctx, ":", 1);
+  MD5_Update(&Md5Ctx, (const char*)realm, realm.lengthof());
+  MD5_Update(&Md5Ctx, ":", 1);
+  MD5_Update(&Md5Ctx, (const char*)password,password.lengthof() );
+  MD5_Final(ha1, &Md5Ctx);
+  if (alg == "md5-sess" ) {
+    MD5_Init(&Md5Ctx);
+    MD5_Update(&Md5Ctx, ha1, MD5_DIGEST_LENGTH);
+    MD5_Update(&Md5Ctx, ":", 1);
+    MD5_Update(&Md5Ctx, nonce, nonce.lengthof());
+    MD5_Update(&Md5Ctx, ":", 1);
+    MD5_Update(&Md5Ctx, cnonce, cnonce.lengthof());
+    MD5_Final(ha1, &Md5Ctx);
+  };
+  tohex(ha1,hexha1);
+  sessionkey=CHARSTRING(MD5_DIGEST_LENGTH*2,(const char*)hexha1);
+}
+
+void CalculateDigestResponse(
+    const CHARSTRING& ha1,        /* H(A1) */
+    const CHARSTRING& nonce,      /* nonce from server */
+    const CHARSTRING& nonceCount, /* 8 hex digits */
+    const CHARSTRING& cnonce,     /* client nonce */
+    const CHARSTRING& qop,        /* qop-value: "", "auth", "auth-int" */
+    const CHARSTRING& method,     /* method from the request */
+    const CHARSTRING& digestUri,  /* requested URL */
+    const CHARSTRING& hentity,    /* H(entity body) if qop="auth-int" */
+    CHARSTRING& response          /* request-digest or response-digest */
+    )
+{
+  MD5_CTX Md5Ctx;
+  unsigned char ha2[MD5_DIGEST_LENGTH];
+  unsigned char hexha2[MD5_DIGEST_LENGTH*2+1];
+  unsigned char resp[MD5_DIGEST_LENGTH];
+  unsigned char hexresp[MD5_DIGEST_LENGTH*2+1];
+
+
+  // calculate H(A2)
+  MD5_Init(&Md5Ctx);
+  MD5_Update(&Md5Ctx, (const char*)method, method.lengthof() );
+  MD5_Update(&Md5Ctx, ":", 1);
+  MD5_Update(&Md5Ctx, (const char*)digestUri, digestUri.lengthof());
+  if (qop == "auth-int") {
+    MD5_Update(&Md5Ctx, ":", 1);
+    MD5_Update(&Md5Ctx, (const char*)hentity, hentity.lengthof());
+  };
+  MD5_Final(ha2, &Md5Ctx);
+
+  // calculate response
+  MD5_Init(&Md5Ctx);
+  MD5_Update(&Md5Ctx, (const char*)ha1, ha1.lengthof());
+  MD5_Update(&Md5Ctx, ":", 1);
+  MD5_Update(&Md5Ctx, (const char*)nonce, nonce.lengthof());
+  MD5_Update(&Md5Ctx, ":", 1);
+  if (qop.lengthof()>0) {
+    MD5_Update(&Md5Ctx, (const char*)nonceCount, nonceCount.lengthof());
+    MD5_Update(&Md5Ctx, ":", 1);
+    MD5_Update(&Md5Ctx, (const char*)cnonce, cnonce.lengthof());
+    MD5_Update(&Md5Ctx, ":", 1);
+    MD5_Update(&Md5Ctx, (const char*)qop, qop.lengthof() );
+    MD5_Update(&Md5Ctx, ":", 1);
+  };
+  tohex(ha2,hexha2);
+  
+  MD5_Update(&Md5Ctx, (const char*)hexha2, MD5_DIGEST_LENGTH*2);
+  MD5_Final(resp, &Md5Ctx);
+  tohex(resp,hexresp);
+  response=CHARSTRING(MD5_DIGEST_LENGTH*2,(const char*)hexresp);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+//  Function: f__calculateDigestResponse
+//
+//  Purpose:
+//    Calculate digest response
+//
+//  Parameters:
+//      nonce - *in* *charstring* -   a server-specified data string which may
+//  `                                 be uniquely generated each time a 401
+//                                    response is made
+//      cnonce - *in* *charstring* -  client nonce
+//      user - *in* *charstring* -    user name
+//      realm - *in* *charstring* -   user realm
+//      passwd - *in* *charstring* -  user password
+//      alg - *in* *charstring* -     a string indicating a pair of algorithms
+//                                    used to produce the digest and a checksum
+//      nonceCount - *in* *charstring* - nonce count (8 hex digits)
+//      method - *in* *charstring* -  method (from the request)
+//      qop - *in* *charstring* -     qop-value: "", "auth", "auth-int"
+//      URI - *in* *charstring* -     digest URI
+//      HEntity - *in* *charstring* - H(entity body) if qop="auth-int"
+//
+//  Return Value:
+//    charstring - digest response
+//
+//  Errors:
+//    -
+//
+//  Detailed description:
+//    Support HTTP authentication (detailed description in RFC 2617) using
+//    uses one-way hash (md5) specified in RFC 1321.
+//    When a request arrives to server for an access-protected object, it
+//    responds an "401 Unauthorized" status code and a WWW-Authenticate
+//    header (encapsulate nonce and other necessary parameters). The client
+//    is expected to retry the request, passing an Authorization header with
+//    response field calculated with f_calculateDigestResponse().
+//
+//    Overview: http://en.wikipedia.org/wiki/Digest_access_authentication
+//
+///////////////////////////////////////////////////////////////////////////////
+CHARSTRING f__calculateDigestResponse(
+  const CHARSTRING& nonce,
+  const CHARSTRING& cnonce,
+  const CHARSTRING& user,
+  const CHARSTRING& realm,
+  const CHARSTRING& passwd,
+  const CHARSTRING& alg,
+  const CHARSTRING& nonceCount,
+  const CHARSTRING& method,
+  const CHARSTRING& qop,
+  const CHARSTRING& URI,
+  const CHARSTRING& HEntity)
+{
+  CHARSTRING ha1;
+  CHARSTRING Response;
+
+  CalculateHA1(alg,user,realm,passwd,nonce,cnonce,ha1);
+
+  CalculateDigestResponse(ha1,nonce,nonceCount,cnonce,qop,method,URI,HEntity,Response);
+
+  return Response;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+//  Function: f__calculateDigestHA1
+//
+//  Purpose:
+//    Calculate digest H(A1) hash
+//
+//  Parameters:
+//      nonce - *in* *charstring* -   a server-specified data string which may
+//  `                                 be uniquely generated each time a 401
+//                                    response is made
+//      cnonce - *in* *charstring* -  client nonce
+//      user - *in* *charstring* -    user name
+//      realm - *in* *charstring* -   user realm
+//      passwd - *in* *charstring* -  user password
+//      alg - *in* *charstring* -     a string indicating a pair of algorithms
+//                                    used to produce the digest and a checksum
+//
+//  Return Value:
+//    charstring - digest response
+//
+//  Errors:
+//    -
+//
+//  Detailed description:
+//    Overview: http://en.wikipedia.org/wiki/Digest_access_authentication
+//
+///////////////////////////////////////////////////////////////////////////////
+CHARSTRING f__calculateDigestHA1(
+  const CHARSTRING& nonce,
+  const CHARSTRING& cnonce,
+  const CHARSTRING& user,
+  const CHARSTRING& realm,
+  const CHARSTRING& passwd,
+  const CHARSTRING& alg)
+{
+  CHARSTRING ha1;
+
+  CalculateHA1(alg,user,realm,passwd,nonce,cnonce,ha1);
+
+  return ha1;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+//  Function: f__calculateMD5
+//
+//  Purpose:
+//    Compute MD5 hash value
+//
+//  Parameters:
+//      pszHashInput - *in* *charstring* -  input value to compute hash of
+//
+//  Return Value:
+//      hashValue - *out* *charstring* -  hexa hash value of input
+//
+//  Errors:
+//      -
+//
+//  Detailed description:
+//      -
+//
+///////////////////////////////////////////////////////////////////////////////
+CHARSTRING  f__calculateMD5(const CHARSTRING& pszHashInput)
+{
+   unsigned char md[MD5_DIGEST_LENGTH];
+   MD5((const unsigned char*)(const char *)pszHashInput,pszHashInput.lengthof(),md);
+
+
+   return oct2str(OCTETSTRING(MD5_DIGEST_LENGTH,md));
+}
+
+OCTETSTRING  f__calculateMD5__oct(const OCTETSTRING& pszHashInput)
+{
+   unsigned char md[MD5_DIGEST_LENGTH];
+   MD5((const unsigned char*)pszHashInput,pszHashInput.lengthof(),md);
+
+
+   return OCTETSTRING(MD5_DIGEST_LENGTH,md);
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 //  Function: f__calculateRAND__oct
@@ -447,33 +697,32 @@ OCTETSTRING ef__3DES__ECB__Encrypt (const OCTETSTRING& pl__data, const OCTETSTRI
    unsigned char* outbuf=NULL;
   const unsigned char* data= (const unsigned char*)pl__data;
 
-  EVP_CIPHER_CTX ctx;
-  EVP_CIPHER_CTX_init(&ctx);
+  EVP_CIPHER_CTX *ctx=EVP_CIPHER_CTX_new();
 
-  if(EVP_EncryptInit_ex(&ctx, EVP_des_ede3_ecb(), NULL, pl__key, NULL))
+  if(EVP_EncryptInit_ex(ctx, EVP_des_ede3_ecb(), NULL, pl__key, NULL))
   {
-    int block_size = EVP_CIPHER_CTX_block_size(&ctx);
+    int block_size = EVP_CIPHER_CTX_block_size(ctx);
      if(!pl__use__padding) {  // the padding is used by default
-      EVP_CIPHER_CTX_set_padding(&ctx,0);
+      EVP_CIPHER_CTX_set_padding(ctx,0);
       if(pl__data.lengthof()%block_size){
         TTCN_warning("ef_3DES_ECB_Encrypt: The length of the pl_data should be n * %d (the block size) if padding is not used.", block_size);
-        EVP_CIPHER_CTX_cleanup(&ctx);
+        EVP_CIPHER_CTX_free(ctx);
         return OCTETSTRING(0,NULL);
       }
     }
     if((outbuf = (unsigned char*)Malloc(pl__data.lengthof() + block_size)) != NULL)
     {
-      if(!EVP_EncryptUpdate(&ctx, outbuf, &outl, data, pl__data.lengthof())){
+      if(!EVP_EncryptUpdate(ctx, outbuf, &outl, data, pl__data.lengthof())){
         TTCN_warning("ef_3DES_ECB_Encrypt: EVP_EncryptUpdate failed.");
         Free(outbuf);
-        EVP_CIPHER_CTX_cleanup(&ctx);
+        EVP_CIPHER_CTX_free(ctx);
         return OCTETSTRING(0,NULL);
       }
       position = outl;
-      if(!EVP_EncryptFinal_ex(&ctx, &outbuf[position], &outl)){
+      if(!EVP_EncryptFinal_ex(ctx, &outbuf[position], &outl)){
         TTCN_warning("ef_3DES_ECB_Encrypt: EVP_EncryptFinal_ex failed.");
         Free(outbuf);
-        EVP_CIPHER_CTX_cleanup(&ctx);
+        EVP_CIPHER_CTX_free(ctx);
         return OCTETSTRING(0,NULL);
       }
 
@@ -482,10 +731,11 @@ OCTETSTRING ef__3DES__ECB__Encrypt (const OCTETSTRING& pl__data, const OCTETSTRI
       Free(outbuf);
     }
 
-    EVP_CIPHER_CTX_cleanup(&ctx);
+    EVP_CIPHER_CTX_free(ctx);
 
   } else {
         TTCN_warning("ef_3DES_ECB_Encrypt: EVP_EncryptInit_ex failed.");
+        EVP_CIPHER_CTX_free(ctx);
         return OCTETSTRING(0,NULL);
   }
 
@@ -524,34 +774,34 @@ OCTETSTRING ef__3DES__ECB__Decrypt (const OCTETSTRING& pl__data, const OCTETSTRI
    unsigned char* outbuf=NULL;
   const unsigned char* data= (const unsigned char*)pl__data;
 
-  EVP_CIPHER_CTX ctx;
-  EVP_CIPHER_CTX_init(&ctx);
+  EVP_CIPHER_CTX *ctx=EVP_CIPHER_CTX_new();
+  EVP_CIPHER_CTX_init(ctx);
 
-  if(EVP_DecryptInit_ex(&ctx, EVP_des_ede3_ecb(), NULL, pl__key, NULL))
+  if(EVP_DecryptInit_ex(ctx, EVP_des_ede3_ecb(), NULL, pl__key, NULL))
   {
-    int block_size = EVP_CIPHER_CTX_block_size(&ctx);
+    int block_size = EVP_CIPHER_CTX_block_size(ctx);
     if(pl__data.lengthof()%block_size){
       TTCN_warning("ef_3DES_ECB_Decrypt: The length of the pl_data should be n * %d (the block size)!", block_size);
-        EVP_CIPHER_CTX_cleanup(&ctx);
+      EVP_CIPHER_CTX_free(ctx);
       return OCTETSTRING(0,NULL);
     }
      if(!pl__use__padding) {  // the padding is used by default
-      EVP_CIPHER_CTX_set_padding(&ctx,0);
+      EVP_CIPHER_CTX_set_padding(ctx,0);
     }
     if((outbuf = (unsigned char*)Malloc(pl__data.lengthof() + block_size)) != NULL)
     {
-      if(!EVP_DecryptUpdate(&ctx, outbuf, &outl, data, pl__data.lengthof())){
+      if(!EVP_DecryptUpdate(ctx, outbuf, &outl, data, pl__data.lengthof())){
         TTCN_warning("ef_3DES_ECB_Decrypt: EVP_DecryptUpdate failed.");
         Free(outbuf);
-        EVP_CIPHER_CTX_cleanup(&ctx);
+        EVP_CIPHER_CTX_free(ctx);
         return OCTETSTRING(0,NULL);
       }
       position = outl;
 
-      if(!EVP_DecryptFinal_ex(&ctx, &outbuf[position], &outl)){
+      if(!EVP_DecryptFinal_ex(ctx, &outbuf[position], &outl)){
         TTCN_warning("ef_3DES_ECB_Decrypt: EVP_DecryptFinal_ex failed.");
         Free(outbuf);
-        EVP_CIPHER_CTX_cleanup(&ctx);
+        EVP_CIPHER_CTX_free(ctx);
         return OCTETSTRING(0,NULL);
       }
 
@@ -560,10 +810,11 @@ OCTETSTRING ef__3DES__ECB__Decrypt (const OCTETSTRING& pl__data, const OCTETSTRI
       Free(outbuf);
     }
 
-    EVP_CIPHER_CTX_cleanup(&ctx);
+    EVP_CIPHER_CTX_free(ctx);
 
   } else {
         TTCN_warning("ef_3DES_ECB_Decrypt: EVP_DecryptInit_ex failed.");
+        EVP_CIPHER_CTX_free(ctx);
         return OCTETSTRING(0,NULL);
   }
 
@@ -605,35 +856,35 @@ OCTETSTRING ef__3DES__CBC__Encrypt (const OCTETSTRING& pl__data, const OCTETSTRI
    unsigned char* outbuf=NULL;
   const unsigned char* data= (const unsigned char*)pl__data;
 
-  EVP_CIPHER_CTX ctx;
-  EVP_CIPHER_CTX_init(&ctx);
+  EVP_CIPHER_CTX *ctx=EVP_CIPHER_CTX_new();
+  EVP_CIPHER_CTX_init(ctx);
 
-  if(EVP_EncryptInit_ex(&ctx, EVP_des_ede3_cbc(), NULL, pl__key, pl__iv))
+  if(EVP_EncryptInit_ex(ctx, EVP_des_ede3_cbc(), NULL, pl__key, pl__iv))
   {
-    int block_size = EVP_CIPHER_CTX_block_size(&ctx);
+    int block_size = EVP_CIPHER_CTX_block_size(ctx);
      if(!pl__use__padding) {  // the padding is used by default
-      EVP_CIPHER_CTX_set_padding(&ctx,0);
+      EVP_CIPHER_CTX_set_padding(ctx,0);
       if(pl__data.lengthof()%block_size){
         TTCN_warning("ef_3DES_CBC_Encrypt: The length of the pl_data should be n * %d (the block size) if padding is not used.", block_size);
-        EVP_CIPHER_CTX_cleanup(&ctx);
+        EVP_CIPHER_CTX_free(ctx);
         return OCTETSTRING(0,NULL);
       }
     }
     if((outbuf = (unsigned char*)Malloc(pl__data.lengthof() + block_size)) != NULL)
     {
-      if(!EVP_EncryptUpdate(&ctx, outbuf, &outl, data, pl__data.lengthof())){
+      if(!EVP_EncryptUpdate(ctx, outbuf, &outl, data, pl__data.lengthof())){
         TTCN_warning("ef_3DES_CBC_Encrypt: EVP_EncryptUpdate failed.");
         Free(outbuf);
-        EVP_CIPHER_CTX_cleanup(&ctx);
+        EVP_CIPHER_CTX_free(ctx);
         return OCTETSTRING(0,NULL);
       }
 
       position = outl;
 
-      if(!EVP_EncryptFinal_ex(&ctx, &outbuf[position], &outl)){
+      if(!EVP_EncryptFinal_ex(ctx, &outbuf[position], &outl)){
         TTCN_warning("ef_3DES_CBC_Encrypt: EVP_EncryptFinal_ex failed.");
         Free(outbuf);
-        EVP_CIPHER_CTX_cleanup(&ctx);
+        EVP_CIPHER_CTX_free(ctx);
         return OCTETSTRING(0,NULL);
       }
 
@@ -642,10 +893,11 @@ OCTETSTRING ef__3DES__CBC__Encrypt (const OCTETSTRING& pl__data, const OCTETSTRI
 
     ret_val=OCTETSTRING(position, outbuf);
     Free(outbuf);
-    EVP_CIPHER_CTX_cleanup(&ctx);
+    EVP_CIPHER_CTX_free(ctx);
 
   } else {
         TTCN_warning("ef_3DES_CBC_Encrypt: EVP_EncryptInit_ex failed.");
+        EVP_CIPHER_CTX_free(ctx);
         return OCTETSTRING(0,NULL);
   }
 
@@ -685,35 +937,35 @@ OCTETSTRING ef__3DES__CBC__Decrypt (const OCTETSTRING& pl__data, const OCTETSTRI
    unsigned char* outbuf=NULL;
   const unsigned char* data= (const unsigned char*)pl__data;
 
-  EVP_CIPHER_CTX ctx;
-  EVP_CIPHER_CTX_init(&ctx);
+  EVP_CIPHER_CTX *ctx=EVP_CIPHER_CTX_new();
+  EVP_CIPHER_CTX_init(ctx);
 
-  if(EVP_DecryptInit_ex(&ctx, EVP_des_ede3_cbc(), NULL, pl__key, pl__iv))
+  if(EVP_DecryptInit_ex(ctx, EVP_des_ede3_cbc(), NULL, pl__key, pl__iv))
   {
-    int block_size = EVP_CIPHER_CTX_block_size(&ctx);
+    int block_size = EVP_CIPHER_CTX_block_size(ctx);
     if(pl__data.lengthof()%block_size){
       TTCN_warning("ef__3DES__CBC__Decrypt: The length of the pl_data should be n * %d (the block size)!", block_size);
-        EVP_CIPHER_CTX_cleanup(&ctx);
+      EVP_CIPHER_CTX_free(ctx);
       return OCTETSTRING(0,NULL);
     }
      if(!pl__use__padding) {  // the padding is used by default
-      EVP_CIPHER_CTX_set_padding(&ctx,0);
+      EVP_CIPHER_CTX_set_padding(ctx,0);
     }
     if((outbuf = (unsigned char*)Malloc(pl__data.lengthof() + block_size)) != NULL)
     {
-      if(!EVP_DecryptUpdate(&ctx, outbuf, &outl, data, pl__data.lengthof())){
+      if(!EVP_DecryptUpdate(ctx, outbuf, &outl, data, pl__data.lengthof())){
         TTCN_warning("ef_3DES_CBC_Decrypt: EVP_DecryptUpdate failed.");
         Free(outbuf);
-        EVP_CIPHER_CTX_cleanup(&ctx);
+        EVP_CIPHER_CTX_free(ctx);
         return OCTETSTRING(0,NULL);
       }
 ;
       position = outl;
 
-      if(!EVP_DecryptFinal_ex(&ctx, &outbuf[position], &outl)){
+      if(!EVP_DecryptFinal_ex(ctx, &outbuf[position], &outl)){
         TTCN_warning("ef_3DES_ECB_Decrypt: EVP_DecryptFinal_ex failed.");
         Free(outbuf);
-        EVP_CIPHER_CTX_cleanup(&ctx);
+        EVP_CIPHER_CTX_free(ctx);
         return OCTETSTRING(0,NULL);
       }
       position += outl;
@@ -721,10 +973,11 @@ OCTETSTRING ef__3DES__CBC__Decrypt (const OCTETSTRING& pl__data, const OCTETSTRI
       Free(outbuf);
     }
 
-    EVP_CIPHER_CTX_cleanup(&ctx);
+    EVP_CIPHER_CTX_free(ctx);
 
   } else {
         TTCN_warning("ef_3DES_CBC_Decrypt: EVP_DecryptInit_ex failed.");
+        EVP_CIPHER_CTX_free(ctx);
         return OCTETSTRING(0,NULL);
   }
 
@@ -767,22 +1020,22 @@ OCTETSTRING ef__Calculate__AES__XCBC__128 (const OCTETSTRING& pl__data, const OC
   unsigned char key3[block_size] = { 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03, 0x03 };
   unsigned char e[block_size] = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 };
 
-  EVP_CIPHER_CTX ctx;
-  EVP_CIPHER_CTX_init(&ctx);
+  EVP_CIPHER_CTX *ctx=EVP_CIPHER_CTX_new();
+  EVP_CIPHER_CTX_init(ctx);
 
-  EVP_EncryptInit_ex(&ctx, EVP_aes_128_cbc(), NULL, pl__key, NULL);
-  EVP_EncryptUpdate(&ctx, key1, &outl, key1, block_size);
-  EVP_CIPHER_CTX_cleanup(&ctx);
+  EVP_EncryptInit_ex(ctx, EVP_aes_128_cbc(), NULL, pl__key, NULL);
+  EVP_EncryptUpdate(ctx, key1, &outl, key1, block_size);
+  EVP_CIPHER_CTX_cleanup(ctx);
 
-  EVP_EncryptInit_ex(&ctx, EVP_aes_128_cbc(), NULL, pl__key, NULL);
-  EVP_EncryptUpdate(&ctx, key2, &outl, key2, block_size);
-  EVP_CIPHER_CTX_cleanup(&ctx);
+  EVP_EncryptInit_ex(ctx, EVP_aes_128_cbc(), NULL, pl__key, NULL);
+  EVP_EncryptUpdate(ctx, key2, &outl, key2, block_size);
+  EVP_CIPHER_CTX_cleanup(ctx);
 
-  EVP_EncryptInit_ex(&ctx, EVP_aes_128_cbc(), NULL, pl__key, NULL);
-  EVP_EncryptUpdate(&ctx, key3, &outl, key3, block_size);
-  EVP_CIPHER_CTX_cleanup(&ctx);
+  EVP_EncryptInit_ex(ctx, EVP_aes_128_cbc(), NULL, pl__key, NULL);
+  EVP_EncryptUpdate(ctx, key3, &outl, key3, block_size);
+  EVP_CIPHER_CTX_cleanup(ctx);
 
-  if(EVP_EncryptInit_ex(&ctx, EVP_aes_128_cbc(), NULL, key1, NULL))
+  if(EVP_EncryptInit_ex(ctx, EVP_aes_128_cbc(), NULL, key1, NULL))
   {
     for(int i = 0; i < data_length - block_size; i += block_size)
     {
@@ -791,9 +1044,9 @@ OCTETSTRING ef__Calculate__AES__XCBC__128 (const OCTETSTRING& pl__data, const OC
         e[j] ^= data[i+j];
       }
 
-      EVP_EncryptInit_ex(&ctx, EVP_aes_128_cbc(), NULL, key1, NULL);
-      EVP_EncryptUpdate(&ctx, e, &outl, e, block_size);
-      EVP_CIPHER_CTX_cleanup(&ctx);
+      EVP_EncryptInit_ex(ctx, EVP_aes_128_cbc(), NULL, key1, NULL);
+      EVP_EncryptUpdate(ctx, e, &outl, e, block_size);
+      EVP_CIPHER_CTX_cleanup(ctx);
     }
 
     int last_block_length = data_length % block_size;
@@ -824,13 +1077,14 @@ OCTETSTRING ef__Calculate__AES__XCBC__128 (const OCTETSTRING& pl__data, const OC
       }
 
     }
-    EVP_EncryptInit_ex(&ctx, EVP_aes_128_cbc(), NULL, key1, NULL);
-    EVP_EncryptUpdate(&ctx, e, &outl, e, block_size);
-    EVP_CIPHER_CTX_cleanup(&ctx);
+    EVP_EncryptInit_ex(ctx, EVP_aes_128_cbc(), NULL, key1, NULL);
+    EVP_EncryptUpdate(ctx, e, &outl, e, block_size);
+    EVP_CIPHER_CTX_free(ctx);
 
     return OCTETSTRING(pl__out__length, (const unsigned char*)e);
 
   }
+  EVP_CIPHER_CTX_free(ctx);
   return OCTETSTRING(0,NULL);
 }
 
@@ -881,18 +1135,32 @@ INTEGER ef__DH__generate__private__public__keys (const INTEGER& pl__keyLength, O
       return INTEGER(0);
     }
   }
-  dh->p = prime;
 
   const char* generator = "2";
   BIGNUM* gen = BN_new();
   BN_hex2bn(&gen, generator);
+
+#if OPENSSL_VERSION_NUMBER >= 0x1010000fL
+  DH_set0_pqg(dh, prime, NULL, gen);
+#else
+  dh->p = prime;
   dh->g = gen;
-
+#endif
+  
   DH_generate_key(dh);
+  const BIGNUM* pubk=NULL;
+  const BIGNUM* privk=NULL;
 
-  int pub_len = BN_num_bytes(dh->pub_key);
+#if OPENSSL_VERSION_NUMBER >= 0x1010000fL
+  DH_get0_key(dh, &pubk, &privk);
+#else
+  pubk=dh->pub_key;
+  privk=dh->priv_key;
+#endif
+  
+  int pub_len = BN_num_bytes(pubk);
   unsigned char* pub_key = (unsigned char*)Malloc(pub_len * sizeof(unsigned char));
-  pub_len = BN_bn2bin(dh->pub_key, pub_key);
+  pub_len = BN_bn2bin(pubk, pub_key);
   if (key_length-pub_len > 0)
   {pl__pubkey =  int2oct(0,key_length-pub_len) + OCTETSTRING(pub_len, pub_key);}
   else
@@ -905,9 +1173,9 @@ INTEGER ef__DH__generate__private__public__keys (const INTEGER& pl__keyLength, O
       return INTEGER(0);
   }
 
-  int priv_len = BN_num_bytes(dh->priv_key);
+  int priv_len = BN_num_bytes(privk);
   unsigned char* priv_key = (unsigned char*)Malloc(priv_len * sizeof(unsigned char));
-  priv_len = BN_bn2bin(dh->priv_key, priv_key);
+  priv_len = BN_bn2bin(privk, priv_key);
   if (key_length-priv_len > 0)
   {pl__privkey =  int2oct(0,key_length-priv_len) + OCTETSTRING(priv_len, priv_key);}
   else
@@ -970,20 +1238,29 @@ OCTETSTRING ef__DH__shared__secret (const OCTETSTRING& pl__pubkey, const OCTETST
       return OCTETSTRING(0, NULL);
     }
   }
-  dh->p = prime;
 
   const char* generator = "2";
   BIGNUM* gen = BN_new();
   BN_hex2bn(&gen, generator);
+
+#if OPENSSL_VERSION_NUMBER >= 0x1010000fL
+  DH_set0_pqg(dh, prime, NULL, gen);
+#else
+  dh->p = prime;
   dh->g = gen;
+#endif
 
   BIGNUM* priv_key = BN_new();
   BN_bin2bn((const unsigned char*)pl__privkey, key_length, priv_key);
-  dh->priv_key = priv_key;
 
   BIGNUM* pub_key = BN_new();
   BN_bin2bn((const unsigned char*)pl__pubkey, key_length, pub_key);
+#if OPENSSL_VERSION_NUMBER >= 0x1010000fL
+  DH_set0_key(dh, pub_key, priv_key );
+#else
+  dh->priv_key = priv_key;
   dh->pub_key = pub_key;
+#endif
 
   if(DH_compute_key(shared_secret, pub_key, dh))
   {
@@ -1120,8 +1397,11 @@ OCTETSTRING f__AES__CTR__128__Encrypt__Decrypt__OpenSSL (const OCTETSTRING& p_ke
   unsigned char ecount_buf[AES_BLOCK_SIZE];
   memset(ecount_buf, 0, AES_BLOCK_SIZE);
 
-  AES_ctr128_encrypt((const unsigned char*)p_data, enc_data, data_len, &aes_k, k_iv, ecount_buf, &num);
-
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+   CRYPTO_ctr128_encrypt((const unsigned char*)p_data, enc_data, data_len, &aes_k, k_iv,ecount_buf , &num, (block128_f)AES_encrypt);
+#else
+   AES_ctr128_encrypt((const unsigned char*)p_data, enc_data, data_len, &aes_k, k_iv, ecount_buf, &num);
+#endif
   return OCTETSTRING(data_len, enc_data);
 }
 

@@ -10,36 +10,49 @@
 //
 //  File:               TCCDateTime.cc
 //  Description:        TCC Useful Functions: DateTime Functions
-//  Rev:                R30A
+//  Rev:                R35B
 //  Prodnr:             CNL 113 472
 //
 ///////////////////////////////////////////////////////////////////////////////
 
 #include "TCCDateTime_Functions.hh"
 #include <time.h>
+#include <sys/time.h>
 #include <stdlib.h>
 
-namespace TCCDateTime__Functions 
+namespace TCCDateTime__Functions
 {
+  const char * TCC_WEEKDAY[] = {"Sun","Mon","Tue","Wed","Thu","Fri","Sat"};
+  const char * TCC_MONTH[] = {"Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"};
+
+  //format time string in the following format Www Mmm dd hh:mm::ss.SSS yyyy
+  CHARSTRING formatTimeString(const struct tm* ti, int msec)
+  {
+    char ret_val[30];
+    sprintf(ret_val,"%.3s %.3s %.2d %.2d:%.2d:%.2d.%.3d %.4d\n",
+        TCC_WEEKDAY[ti->tm_wday], TCC_MONTH[ti->tm_mon], ti->tm_mday,
+        ti->tm_hour, ti->tm_min, ti->tm_sec, msec,ti->tm_year + 1900);
+    return ret_val;
+  }
 
 ///////////////////////////////////////////////////////////////////////////////
 //  Function: f__time
-// 
+//
 //  Purpose:
 //    Current calendar time of the system in seconds
 //
 //  Parameters:
 //    -
-// 
+//
 //  Return Value:
 //    integer - time value
 //
 //  Errors:
-//    - 
-// 
+//    -
+//
 //  Detailed description:
 //    -
-// 
+//
 ///////////////////////////////////////////////////////////////////////////////
   INTEGER f__time()
   {
@@ -51,73 +64,156 @@ namespace TCCDateTime__Functions
   }
 
 ///////////////////////////////////////////////////////////////////////////////
+//  Function: f__time__ms
+//
+//  Purpose:
+//    Current calendar time of the system in milliseconds
+//
+//  Parameters:
+//    -
+//
+//  Return Value:
+//    integer - time value
+//
+//  Errors:
+//    -
+//
+//  Detailed description:
+//    -
+//
+///////////////////////////////////////////////////////////////////////////////
+  INTEGER f__time__ms()
+  {
+    struct timeval ct;
+    gettimeofday(&ct,0);
+    INTEGER i;
+    i.set_long_long_val(ct.tv_sec*1000 + ct.tv_usec/1000);
+    return i;
+  }
+
+///////////////////////////////////////////////////////////////////////////////
 //  Function: f__ctime
-// 
+//
 //  Purpose:
 //    Convert a time value in seconds to human readable string.
 //    The time represented as local time
 //
 //  Parameters:
 //    pl__sec - *in* *integer* - time value
-// 
+//
 //  Return Value:
-//    integer - converted time value
+//    charstring - formatted time in string format
 //
 //  Errors:
-//    - 
-// 
+//    -
+//
 //  Detailed description:
 //    -
-// 
+//
 ///////////////////////////////////////////////////////////////////////////////
-CHARSTRING f__ctime(const INTEGER& pl__sec)
-{
+  CHARSTRING f__ctime(const INTEGER& pl__sec)
+  {
     time_t cur_time = pl__sec.get_long_long_val();
     return ctime(&cur_time);
-}
+  }
 
 ///////////////////////////////////////////////////////////////////////////////
+//  Function: f__ctime__ms
+//
+//  Purpose:
+//    Convert a time value in milliseconds to human readable string.
+//    The time represented as local time
+//
+//  Parameters:
+//    pl__msec - *in* *integer* - time value
+//
+//  Return Value:
+//    charstring - formatted time in string format
+//
+//  Errors:
+//    -
+//
+//  Detailed description:
+//    -
+//
+///////////////////////////////////////////////////////////////////////////////
+  CHARSTRING f__ctime__ms(const INTEGER& pl__msec)
+  {
+    time_t ct = pl__msec.get_long_long_val()/1000;
+    int msec = pl__msec.get_long_long_val()%1000;
+    struct tm * ti = localtime(&ct);
+    return  formatTimeString(ti,msec);
+  }
+///////////////////////////////////////////////////////////////////////////////
 //  Function: f__ctime__UTC
-// 
+//
 //  Purpose:
 //    Convert a time value in seconds to human readable string.
 //    The time represented as UTC
 //
 //  Parameters:
 //    pl__sec - *in* *integer* - time value
-// 
+//
 //  Return Value:
-//    integer - converted time value
+//    charstring - formatted time in string format
 //
 //  Errors:
-//    - 
-// 
+//    -
+//
 //  Detailed description:
 //    -
-// 
+//
 ///////////////////////////////////////////////////////////////////////////////
-CHARSTRING f__ctime__UTC(const INTEGER& pl__sec)
-{
-    time_t cur_time = pl__sec.get_long_long_val();
-    return asctime(gmtime(&cur_time));
-}
+  CHARSTRING f__ctime__UTC(const INTEGER& pl__sec)
+  {
+      time_t cur_time = pl__sec.get_long_long_val();
+      return asctime(gmtime(&cur_time));
+  }
+
+///////////////////////////////////////////////////////////////////////////////
+//  Function: f__ctime__ms__UTC
+//
+//  Purpose:
+//    Convert a time value in milliseconds to human readable string.
+//    The time represented as UTC
+//
+//  Parameters:
+//    pl__msec - *in* *integer* - time value
+//
+//  Return Value:
+//    charstring - formatted time in string format
+//
+//  Errors:
+//    -
+//
+//  Detailed description:
+//    -
+//
+///////////////////////////////////////////////////////////////////////////////
+  CHARSTRING f__ctime__ms__UTC(const INTEGER& pl__msec)
+  {
+    time_t ct = pl__msec.get_long_long_val()/1000;
+    int msec = pl__msec.get_long_long_val()%1000;
+    struct tm * ti = gmtime(&ct);
+    return formatTimeString(ti,msec);
+  }
 
 ///////////////////////////////////////////////////////////////////////////////
 //  Function: f__getTimeFormatted
-// 
+//
 //  Purpose:
 //    Return the current calendar time in a formatted way
 //
 //  Parameters:
 //    pl__sec - *in* *integer* - time value
 //    pl__format - *in* *charstring* - format string
-// 
+//
 //  Return Value:
 //    charstring - formatted time in string format
 //
 //  Errors:
-//    - 
-// 
+//    -
+//
 //  Detailed description:
 //    *Specifier / Replaced by / Example*
 //
@@ -170,7 +266,7 @@ CHARSTRING f__ctime__UTC(const INTEGER& pl__sec)
 //    ----------------------------------------------------------------------------------------------------------
 //
 //    * The specifiers whose description is marked with an asterisk (*) are locale-dependent.
-// 
+//
 ///////////////////////////////////////////////////////////////////////////////
   CHARSTRING f__getTimeFormatted(const INTEGER& pl__sec, const CHARSTRING& pl__format)
   {
@@ -178,12 +274,12 @@ CHARSTRING f__ctime__UTC(const INTEGER& pl__sec)
     size_t str_len = 255;
     char ret_val[str_len];
     strftime (ret_val, str_len, (const char *)pl__format, localtime(&in_time));
-    return ret_val; 
+    return ret_val;
   }
 
 ///////////////////////////////////////////////////////////////////////////////
 //  Function: f__time2sec
-// 
+//
 //  Purpose:
 //    Function to convert a formated time value to seconds.
 //    The time is expressed as local time.
@@ -195,23 +291,23 @@ CHARSTRING f__ctime__UTC(const INTEGER& pl__sec)
 //    pl__hour - *in* *integer* - day (e.g. 12)
 //    pl__min - *in* *integer* - day (e.g. 50)
 //    pl__sec - *in* *integer* - day (e.g. 7)
-// 
+//
 //  Return Value:
 //    integer - time in seconds
 //
 //  Errors:
-//    - 
-// 
+//    -
+//
 //  Detailed description:
 //    time in seconds since January 1, 1900
-// 
+//
 ///////////////////////////////////////////////////////////////////////////////
-INTEGER f__time2sec(const INTEGER& pl__year,
-		      const INTEGER& pl__mon,
-		      const INTEGER& pl__mday,
-		      const INTEGER& pl__hour,
-		      const INTEGER& pl__min,
-		      const INTEGER& pl__sec) 
+  INTEGER f__time2sec(const INTEGER& pl__year,
+                      const INTEGER& pl__mon,
+                      const INTEGER& pl__mday,
+                      const INTEGER& pl__hour,
+                      const INTEGER& pl__min,
+                      const INTEGER& pl__sec)
   {
     struct tm tms;
     tms.tm_sec = pl__sec;
@@ -230,10 +326,9 @@ INTEGER f__time2sec(const INTEGER& pl__year,
     return i;
   }
 
-
 ///////////////////////////////////////////////////////////////////////////////
 //  Function: f__time2sec__UTC
-// 
+//
 //  Purpose:
 //    Function to convert a formated time value to seconds.
 //    The time is expressed as UTC.
@@ -245,24 +340,24 @@ INTEGER f__time2sec(const INTEGER& pl__year,
 //    pl__hour - *in* *integer* - day (e.g. 12)
 //    pl__min - *in* *integer* - day (e.g. 50)
 //    pl__sec - *in* *integer* - day (e.g. 7)
-// 
+//
 //  Return Value:
 //    integer - time in seconds
 //
 //  Errors:
-//    - 
-// 
+//    -
+//
 //  Detailed description:
 //    time in seconds since January 1, 1900
-// 
+//
 ///////////////////////////////////////////////////////////////////////////////
 
-INTEGER f__time2sec__UTC(const INTEGER& pl__year,
-		      const INTEGER& pl__mon,
-		      const INTEGER& pl__mday,
-		      const INTEGER& pl__hour,
-		      const INTEGER& pl__min,
-		      const INTEGER& pl__sec) 
+  INTEGER f__time2sec__UTC(const INTEGER& pl__year,
+                           const INTEGER& pl__mon,
+                           const INTEGER& pl__mday,
+                           const INTEGER& pl__hour,
+                           const INTEGER& pl__min,
+                           const INTEGER& pl__sec)
   {
     struct tm tms;
     tms.tm_sec = pl__sec;
@@ -285,25 +380,25 @@ INTEGER f__time2sec__UTC(const INTEGER& pl__year,
 
 ///////////////////////////////////////////////////////////////////////////////
 //  Function: f__getCurrentDateWithOffset
-// 
+//
 //  Purpose:
 //    Generate a date from the actual date and time plus the parameter
-//    in seconds e.g. getSdate(30) will return a charstring containing 
+//    in seconds e.g. getSdate(30) will return a charstring containing
 //    the date and time of 30 seconds later
 //
 //  Parameters:
 //    pl__sec - *in* *integer* - offset time value
-// 
+//
 //  Return Value:
 //    charstring - formatted time in string format
 //
 //  Errors:
-//    - 
-// 
+//    -
+//
 //  Detailed description:
 //    -
-// 
-///////////////////////////////////////////////////////////////////////////////  
+//
+///////////////////////////////////////////////////////////////////////////////
   CHARSTRING f__getCurrentDateWithOffset(const INTEGER& pl__sec)
   {
     time_t cur_time;
@@ -314,38 +409,66 @@ INTEGER f__time2sec__UTC(const INTEGER& pl__year,
 
 ///////////////////////////////////////////////////////////////////////////////
 //  Function: f__getCurrentGMTDate
-// 
+//
 //  Purpose:
-//    Return the current GMT date in format RFC 1123-Date 
-//    e.g.:Sat, 13 Nov 2010 23:30:02 GMT
+//    Return the current GMT date in format RFC 1123-Date
+//    e.g.:Mon Nov 20 11:22:08 2017
 //
 //  Parameters:
 //    -
-// 
+//
 //  Return Value:
 //    charstring - formatted time in string format
 //
 //  Errors:
-//    - 
-// 
+//    -
+//
 //  Detailed description:
 //    -
-// 
-///////////////////////////////////////////////////////////////////////////////  
+//
+///////////////////////////////////////////////////////////////////////////////
   CHARSTRING f__getCurrentGMTDate()
   {
     time_t cur_time;
     time( &cur_time );
-
     return asctime( gmtime( &cur_time ) );
   }
-  
-  
+
+///////////////////////////////////////////////////////////////////////////////
+//  Function: f__getCurrentGMTDate__ms
+//
+//  Purpose:
+//    Return the current GMT date in format Www Mmm dd hh:mm:ss.SSS yyyy
+//    e.g.:Mon Nov 20 11:22:08.683 2017
+//
+//  Parameters:
+//    -
+//
+//  Return Value:
+//    charstring - formatted time in string format
+//
+//  Errors:
+//    -
+//
+//  Detailed description:
+//    -
+//
+///////////////////////////////////////////////////////////////////////////////
+  CHARSTRING f__getCurrentGMTDate__ms()
+  {
+    struct timeval cur_time;
+    gettimeofday(&cur_time,0);
+    time_t sec = cur_time.tv_sec;
+    int msec = cur_time.tv_usec/1000;
+    struct tm * ti = gmtime(&sec);
+    return formatTimeString(ti,msec);
+  }
+
 //////////////////////////////////////////////////////////////////////////////
 //  Function: f__tic
-// 
+//
 //  Purpose:
-//    Return the number of clock ticks used by the application since 
+//    Return the number of clock ticks used by the application since
 //    the program was launched
 //
 //    OR
@@ -358,84 +481,84 @@ INTEGER f__time2sec__UTC(const INTEGER& pl__year,
 //
 //  Parameters:
 //    -
-// 
+//
 //  Return Value:
 //    integer - tics since program start
 //
 //  Errors:
 //    -
-// 
+//
 //  Detailed description:
 //    -
-// 
-/////////////////////////////////////////////////////////////////////////////// 
-INTEGER f__tic()
-{
+//
+///////////////////////////////////////////////////////////////////////////////
+  INTEGER f__tic()
+  {
     INTEGER i;
     i.set_long_long_val(clock());
     return i;
-}
+  }
 
 //////////////////////////////////////////////////////////////////////////////
 //  Function: f__toc
-// 
+//
 //  Purpose:
-//    Elapsed seconds since time t (only when f__tic() returns the number of 
+//    Elapsed seconds since time t (only when f__tic() returns the number of
 //    clock ticks elapsed since the program was launched)
 //
 //    Warning! This function depends on used library version. Be careful!
 //
 //  Parameters:
 //    t - *in* *integer* - time value
-// 
+//
 //  Return Value:
 //    float - elapsed seconds
 //
 //  Errors:
 //    -
-// 
+//
 //  Detailed description:
 //    f__tic counts clock tics since program start. f__toc counts seconds
 //    since clock() readout in t till current time
-// 
+//
 ///////////////////////////////////////////////////////////////////////////////
-FLOAT f__toc(const INTEGER& t)
-{
+  FLOAT f__toc(const INTEGER& t)
+  {
     clock_t tt = (clock_t)t.get_long_long_val();
     return FLOAT((double)(clock()-tt)/CLOCKS_PER_SEC);
-}
-  
+  }
+
 //////////////////////////////////////////////////////////////////////////////
 //  Function: f__timeDiff
-// 
+//
 //  Purpose:
 //    Difference between two time
 //
 //  Parameters:
 //    t_start - *in* *integer* - start time
 //    t_stop - *in* *integer* - stop time
-// 
+//
 //  Return Value:
 //    integer - t_stop-t_start
 //
 //  Errors:
-//    - 
-// 
+//    -
+//
 //  Detailed description:
 //    -
-// 
+//
 ///////////////////////////////////////////////////////////////////////////////
-INTEGER f__timeDiff(const INTEGER& t_stop, const INTEGER& t_start)
-{
+  INTEGER f__timeDiff(const INTEGER& t_stop, const INTEGER& t_start)
+  {
     if(!t_stop.is_bound())
     {
-        TTCN_error("Stop time is unbound in call to function TimeDiff");
+      TTCN_error("Stop time is unbound in call to function TimeDiff");
     }
     if(!t_start.is_bound())
     {
-        TTCN_error("Start time is unbound in call to function TimeDiff");
+      TTCN_error("Start time is unbound in call to function TimeDiff");
     }
     return t_stop-t_start;
-}
+  }
 
 } // end of Namespace

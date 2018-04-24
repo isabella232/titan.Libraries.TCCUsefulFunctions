@@ -10,7 +10,7 @@
 //
 //  File:               TCCIPsec_XFRM_SP.cc
 //  Description:        TCC Useful Functions: IPsec XFRM Functions
-//  Rev:                R30A
+//  Rev:                R35B
 //  Prodnr:             CNL 113 472
 //
 ///////////////////////////////////////////////////////////////////////////////
@@ -91,7 +91,7 @@ void f_add_template(
 
    if(ipv4)xTmpl->family = AF_INET;
   else xTmpl->family = AF_INET6;
-      
+
   if(tmpl.reqid().ispresent())xTmpl->reqid  =  tmpl.reqid()().get_long_long_val();
   else xTmpl->reqid = 0;  //0:require else:unique
 
@@ -103,10 +103,10 @@ void f_add_template(
 
    xTmpl->optional = 0;
    switch(tmpl.level()){
-     case Level::use:{xTmpl->optional = 1;break;} 
+     case Level::use:{xTmpl->optional = 1;break;}
      default:        {xTmpl->optional = 0;}      //Level -- 0:required 1:use
    };
-  
+
    xTmpl->aalgos = (~(__u32)0);
    xTmpl->ealgos = (~(__u32)0);
    xTmpl->calgos = (~(__u32)0);
@@ -125,7 +125,7 @@ void f_set_SP_add_info(
 
   pol = (struct xfrm_userpolicy_info*)NLMSG_DATA(memo);
   memset(pol,0,sizeof(struct xfrm_userpolicy_info));
-  
+
   int addr_family = f_set_IP_address(pol_info.dst().ip__address(), &pol->sel.daddr);
    if(addr_family >= 0){
     pol->sel.family = addr_family;
@@ -147,7 +147,7 @@ void f_set_SP_add_info(
       pol->sel.prefixlen_s = 128;
     };
   }; //else default value will be set: 0.0.0.0
- 
+
   if(pol_info.dst().address__prefix().ispresent()){pol->sel.prefixlen_d = pol_info.dst().address__prefix()();};
    if(pol_info.src().address__prefix().ispresent()){pol->sel.prefixlen_s = pol_info.src().address__prefix()();};
    if(pol_info.dst().port__number().ispresent()){
@@ -158,10 +158,10 @@ void f_set_SP_add_info(
      pol->sel.sport = htons(pol_info.src().port__number()());
      pol->sel.sport_mask = 0xffff;
    };
- 
+
    pol->sel.ifindex = 0;
    pol->sel.user = 0;
- 
+
   if(pol_info.protocol() != TransportProtocol::ANY){
     pol->sel.proto = pol_info.protocol();
   } else {
@@ -195,20 +195,20 @@ void f_set_SP_add_info(
   if(pol_info.info().ispresent()){
     f_process_additionalInfo(pol, pol_info.info()());
   };
-    
+
   Template__List list = pol_info.tmpl();
-  
+
   ahdr = (struct nlattr*)((char*)pol+NLA_ALIGN(sizeof(*pol)));
   ahdr->nla_len = NLA_HDRLEN+sizeof(*tmpl)*numberOfTmpls;
    ahdr->nla_type = XFRMA_TMPL;
-   
+
   for(int i = 0;i<numberOfTmpls;i++){
     TTCN_Logger::log( TTCN_DEBUG,"######   %d. template:",i+1);
     if(i>0){
        tmpl = (struct xfrm_user_tmpl*)((char*)tmpl+NLA_ALIGN(sizeof(*tmpl)));
     } else {
        tmpl = (struct xfrm_user_tmpl*)((char*)ahdr+NLA_HDRLEN);
-    };  
+    };
 
     f_add_template(tmpl,list[i],pol->share,ipv4);
   };
@@ -235,7 +235,7 @@ void f_set_SP_delete_info(
     };
   }; //else default value will be set: 0.0.0.0
 
-    
+
   temp = inet_pton(AF_INET,pol_info.src().ip__address(),(void*)&pol->sel.saddr.a4);
   if(temp > 0){
     pol->sel.family = AF_INET;
@@ -253,12 +253,17 @@ void f_set_SP_delete_info(
   if(pol_info.dst().address__prefix().ispresent()){pol->sel.prefixlen_d = pol_info.dst().address__prefix()();};
    if(pol_info.src().address__prefix().ispresent()){pol->sel.prefixlen_s = pol_info.src().address__prefix()();};
 
-  if(pol_info.dst().port__number().ispresent())pol->sel.dport = htons(pol_info.dst().port__number()());
-  if(pol_info.src().port__number().ispresent())pol->sel.sport = htons(pol_info.src().port__number()());
-  pol->sel.dport_mask = pol->sel.sport_mask = 0xffff;
- 
-  pol->sel.proto = pol_info.protocol();
+  if(pol_info.dst().port__number().ispresent()){
+    pol->sel.dport = htons(pol_info.dst().port__number()());
+    pol->sel.dport_mask = 0xffff;
+  };
 
+  if(pol_info.src().port__number().ispresent()){
+    pol->sel.sport = htons(pol_info.src().port__number()());
+    pol->sel.sport_mask = 0xffff;
+  };
+
+  pol->sel.proto = pol_info.protocol();
   pol->dir = pol_info.dir();
 }
 

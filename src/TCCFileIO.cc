@@ -10,7 +10,7 @@
 //
 //  File:               TCCFileIO.cc
 //  Description:        TCC Useful Functions: FileIO Functions
-//  Rev:                R30A
+//  Rev:                R35B
 //  Prodnr:             CNL 113 472
 //
 ///////////////////////////////////////////////////////////////////////////////
@@ -1389,6 +1389,50 @@ BOOLEAN f__FIO__fileList(const CHARSTRING& dirname, FileList& filelist) {
     if (errno){return FALSE;}
     return TRUE;
   }
+}
+
+FIO__FileInfo f__FIO__getFileInfo(const CHARSTRING& name) {
+  FIO__FileType type = FIO__FileType::Unknown;
+  FIO__FileInfo result (type, OMIT_VALUE, OMIT_VALUE, OMIT_VALUE, OMIT_VALUE, OMIT_VALUE, OMIT_VALUE, OMIT_VALUE, OMIT_VALUE, 0, 0, 0);
+  struct stat sb;
+
+  if (!f__FIO__fileOrDirExists(name)) {
+	  type = FIO__FileType::NotExists;
+  } else {
+    if (stat(name, &sb) == -1) {
+    	type = FIO__FileType::ErrorReadingFile;
+    }
+
+    switch (sb.st_mode & S_IFMT) {
+      case S_IFBLK:  type = FIO__FileType::BlockDevice;      break;
+      case S_IFCHR:  type = FIO__FileType::CharacterDevice;  break;
+      case S_IFDIR:  type = FIO__FileType::Directory;        break;
+      case S_IFIFO:  type = FIO__FileType::FIFO__Pipe;       break;
+      case S_IFLNK:  type = FIO__FileType::Symlink;          break;
+      case S_IFREG:  type = FIO__FileType::RegularFile;      break;
+      case S_IFSOCK: type = FIO__FileType::Socket;           break;
+      default:       type = FIO__FileType::Unknown;          break;
+    }
+  }
+
+  result.fileType() = type;
+
+  if (type != FIO__FileType::NotExists && type != FIO__FileType::ErrorReadingFile) {
+    result.nodeNumber() =  sb.st_ino;
+    result.mode() =  sb.st_mode;
+    result.linkCount() =  sb.st_nlink;
+    result.ownership() =  sb.st_uid;
+    result.groupId() =  sb.st_gid;
+    result.blockSize() =  sb.st_blksize;
+    result.fileSize() =  sb.st_size;
+    result.blocksAllocated() =  sb.st_blocks;
+
+    result.lastStatusChange().set_long_long_val(sb.st_ctime);
+    result.lastFileAccess().set_long_long_val(sb.st_atime);
+    result.lastFileModification().set_long_long_val(sb.st_mtime);
+  }
+
+  return result;
 }
 
 }

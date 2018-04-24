@@ -10,7 +10,7 @@
 //
 //  File:               TCCInterface_ip.h
 //  Description:        TCC Useful Functions: Interface Functions
-//  Rev:                R30A
+//  Rev:                R35B
 //  Prodnr:             CNL 113 472
 //
 ///////////////////////////////////////////////////////////////////////////////

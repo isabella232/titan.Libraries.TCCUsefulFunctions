@@ -10,7 +10,7 @@
 //
 //  File:               TCCEncoding_Functions.ttcn
 //  Description:        TCC Useful Functions: Message Encoding Functions.
-//  Rev:                R30A
+//  Rev:                R35B
 //  Prodnr:             CNL 113 472
 //
 ///////////////////////////////////////////////////////////////////////////////
@@ -730,4 +730,4 @@ public function f_enc_TBCD_hex(in hexstring pl_hex) return octetstring
   return vl_oct;
 }
 
-} with {extension "version R30A"}
+} with {extension "version R35B"}

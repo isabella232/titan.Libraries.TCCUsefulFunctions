@@ -10,7 +10,7 @@
 //
 //  File:               TCCOpenSecurity.ttcn
 //  Description:        TCC Useful Functions: Security Functions
-//  Rev:                R30A
+//  Rev:                R35B
 //  Prodnr:             CNL 113 472
 //
 ///////////////////////////////////////////////////////////////////////////////
@@ -19,6 +19,95 @@ module TCCOpenSecurity_Functions {
 
 type octetstring OCT_16 length(16);
 type octetstring OCT_64 length(64);
+
+///////////////////////////////////////////////////////////////////////////////
+//  Function: f_calculateDigestResponse
+//
+//  Purpose:
+//    Calculate digest response
+//
+//  Parameters:
+//      nonce - *in* *charstring* -   a server-specified data string which may
+//  `                                 be uniquely generated each time a 401
+//                                    response is made
+//      cnonce - *in* *charstring* -  client nonce
+//      user - *in* *charstring* -    user name
+//      realm - *in* *charstring* -   user realm
+//      passwd - *in* *charstring* -  user password
+//      alg - *in* *charstring* -     a string indicating a pair of algorithms
+//                                    used to produce the digest and a checksum
+//      nonceCount - *in* *charstring* - nonce count (8 hex digits)
+//      method - *in* *charstring* -  method (from the request)
+//      qop - *in* *charstring* -     qop-value: "", "auth", "auth-int"
+//      URI - *in* *charstring* -     digest URI
+//      HEntity - *in* *charstring* - H(entity body) if qop="auth-int"
+//
+//  Return Value:
+//    charstring - digest response
+//
+//  Errors:
+//    -
+//
+//  Detailed description:
+//    Support HTTP authentication (detailed description in RFC 2617) using
+//    uses one-way hash (md5) specified in RFC 1321.
+//    When a request arrives to server for an access-protected object, it
+//    responds an "401 Unauthorized" status code and a WWW-Authenticate
+//    header (encapsulate nonce and other necessary parameters). The client
+//    is expected to retry the request, passing an Authorization header with
+//    response field calculated with f_calculateDigestResponse().
+//
+//    Overview: http://en.wikipedia.org/wiki/Digest_access_authentication
+//
+///////////////////////////////////////////////////////////////////////////////
+external function f_calculateDigestResponse(
+  charstring nonce,
+  charstring cnonce,
+  charstring user,
+  charstring realm,
+  charstring passwd,
+  charstring alg,
+  charstring nonceCount,
+  charstring method,
+  charstring qop,
+  charstring URI,
+  charstring HEntity) return charstring;
+
+
+///////////////////////////////////////////////////////////////////////////////
+//  Function: f_calculateDigestHA1
+//
+//  Purpose:
+//    Calculate digest H(A1) hash
+//
+//  Parameters:
+//      nonce - *in* *charstring* -   a server-specified data string which may
+//  `                                 be uniquely generated each time a 401
+//                                    response is made
+//      cnonce - *in* *charstring* -  client nonce
+//      user - *in* *charstring* -    user name
+//      realm - *in* *charstring* -   user realm
+//      passwd - *in* *charstring* -  user password
+//      alg - *in* *charstring* -     a string indicating a pair of algorithms
+//                                    used to produce the digest and a checksum
+//
+//  Return Value:
+//    charstring - digest response
+//
+//  Errors:
+//    -
+//
+//  Detailed description:
+//    Overview: http://en.wikipedia.org/wiki/Digest_access_authentication
+//
+///////////////////////////////////////////////////////////////////////////////
+external function f_calculateDigestHA1(
+  charstring nonce,
+  charstring cnonce,
+  charstring user,
+  charstring realm,
+  charstring passwd,
+  charstring alg) return charstring;
 
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -41,6 +130,29 @@ type octetstring OCT_64 length(64);
 //
 ///////////////////////////////////////////////////////////////////////////////
 external function f_calculateRAND_oct(in integer pl_length) return octetstring;
+
+///////////////////////////////////////////////////////////////////////////////
+//  Function: f_calculateMD5
+//
+//  Purpose:
+//    Compute MD5 hash value
+//
+//  Parameters:
+//      pszHashInput - *in* *charstring* -  input value to compute MD5 hash
+//
+//  Return Value:
+//      charstring - hexa hash value of input
+//
+//  Errors:
+//      -
+//
+//  Detailed description:
+//      - MD5() is an openssl specific function, should be found under openssl/md5.h
+//
+///////////////////////////////////////////////////////////////////////////////
+external function f_calculateMD5(in charstring pszHashInput) return charstring;
+
+external function f_calculateMD5_oct(in octetstring pszHashInput) return octetstring;
 
 ///////////////////////////////////////////////////////////////////////////////
 //  Function: f_calculateSHA1

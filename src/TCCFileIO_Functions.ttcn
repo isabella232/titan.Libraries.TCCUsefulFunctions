@@ -10,7 +10,7 @@
 //
 //  File:               TCCFileIO_Functions.ttcn
 //  Description:        TCC Useful Functions: FileIO Functions
-//  Rev:                R30A
+//  Rev:                R35B
 //  Prodnr:             CNL 113 472
 //
 ///////////////////////////////////////////////////////////////////////////////
@@ -608,5 +608,56 @@ external function f_FIO_fileSize (in charstring p_name) return integer;
 type record of charstring FileList;
 external function f_FIO_fileList (in charstring p_name,
                                   inout FileList p_files) return boolean;
+
+type enumerated FIO_FileType {
+  BlockDevice,
+  CharacterDevice,
+  Directory,
+  FIFO_Pipe,
+  Symlink,
+  RegularFile,
+  Socket,
+  Unknown,
+  NotExists,
+  ErrorReadingFile
+};
+
+type record FIO_FileInfo {
+  FIO_FileType fileType,                    //The type of the file
+  integer nodeNumber optional,              //inode number
+  integer mode optional,                    //protection 
+  integer linkCount optional,               //number of hard links
+  integer ownership optional,               //user ID of owner
+  integer groupId optional,                 //group ID of owner
+  integer blockSize optional,               //blocksize for file system I/O
+  integer fileSize optional,                //total size, in bytes
+  integer blocksAllocated optional,         //number of 512B blocks allocated
+  integer lastStatusChange,                 //time of last access
+  integer lastFileAccess,                   //time of last modification
+  integer lastFileModification              //time of last status change
+}
+
+///////////////////////////////////////////////////////////////////////////////
+//  Function: f_FIO_getFileType
+//
+//  Purpose:
+//    Returns the file type of the given file
+//
+//  Parameters:
+//    p_name - *in* *charstring* - name of the file or directory to check
+//
+//  Return Value:
+//   - FIO_FileInfo: Contains the file type, and information about it.
+//
+//  Errors:
+//   - If the file is not found, FIO_FileInfo.fileType will be NotExists
+//   - If the file can not be accessed, FIO_FileInfo.fileType will be ErrorReadingFile
+//   - If the file type is unknown, FIO_FileInfo.fileType will be Unknown
+//
+//  Detailed description:
+//    Returns information about a given file
+//
+///////////////////////////////////////////////////////////////////////////////
+external function f_FIO_getFileInfo (in charstring p_name) return FIO_FileInfo;
 
 }

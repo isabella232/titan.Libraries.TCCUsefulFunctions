@@ -10,7 +10,7 @@
 //
 //  File:               TCCInterface.cc
 //  Description:        TCC Useful Functions: Interface Functions
-//  Rev:                R30A
+//  Rev:                R35B
 //  Prodnr:             CNL 113 472
 //
 ///////////////////////////////////////////////////////////////////////////////
@@ -1066,7 +1066,7 @@ IPAddresses f__getIpAddresses(const CHARSTRING& hostname){
   CharstringList ipv6list(NULL_VALUE);
 
   if ((status = getaddrinfo((const char*)hostname, NULL, &hints, &res)) != 0) {
-    TTCN_warning("f_getIpAddresses: getaddrinfo: %s for \"%s\"\n", gai_strerror(status), (const char*)hostname);
+    TTCN_Logger::log(TTCN_DEBUG, "f_getIpAddresses: getaddrinfo: %s for \"%s\"\n", gai_strerror(status), (const char*)hostname);
     return IPAddresses(ipv4list, ipv6list);
   }
 

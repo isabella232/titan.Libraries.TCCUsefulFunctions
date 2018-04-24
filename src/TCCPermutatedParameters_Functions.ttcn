@@ -10,7 +10,7 @@
 //
 //  File:               TCCPermutatedParameters_Functions.ttcn
 //  Description:        functions for permutated params
-//  Rev:                R30A
+//  Rev:                R35B
 //  Prodnr:             CNL 113 472
 //////////////////////////////////////////////////////////////////////////////
 
@@ -905,4 +905,4 @@ public function f_PP_getParamValueFromSet(
   return vl_ret;
 }
 
-} with { extension "version R30A"}
+} with { extension "version R35B"}

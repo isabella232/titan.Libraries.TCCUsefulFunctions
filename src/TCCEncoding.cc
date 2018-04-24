@@ -10,7 +10,7 @@
 //
 //  File:               TCCEncoding.cc
 //  Description:        TCC Useful Functions: Message Encoding Functions.
-//  Rev:                R30A
+//  Rev:                R35B
 //  Prodnr:             CNL 113 472
 //
 ///////////////////////////////////////////////////////////////////////////////

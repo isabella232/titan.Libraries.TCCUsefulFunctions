@@ -10,7 +10,7 @@
 //
 //  File:               TCCRegexp_Functions.ttcn
 //  Description:        TCC Useful Functions: Regexp Functions
-//  Rev:                R30A
+//  Rev:                R35B
 //  Prodnr:             CNL 113 472
 //
 ///////////////////////////////////////////////////////////////////////////////

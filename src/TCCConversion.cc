@@ -10,7 +10,7 @@
 //
 //  File:               TCCConversion.cc
 //  Description:        TCC Useful Functions: Conversion Functions
-//  Rev:                R30A
+//  Rev:                R35B
 //  Prodnr:             CNL 113 472
 //
 ///////////////////////////////////////////////////////////////////////////////

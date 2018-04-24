@@ -10,7 +10,7 @@
 //
 //  File:               TCCPermutatedParameters_Definitions.ttcn
 //  Description:        definitions for permutated params
-//  Rev:                R30A
+//  Rev:                R35B
 //  Prodnr:             CNL 113 472
 //////////////////////////////////////////////////////////////////////////////
 
@@ -156,4 +156,4 @@ type record of PP_ParamSet PP_ParamSetList; // is each CGPN has its own current 
 ///////////////////////////////////////////////////////////
 type set of PP_SingleParam PP_ParamSet;  // ie params belonging to one particular call
 
-} with { extension "version R30A"}
+} with { extension "version R35B"}
