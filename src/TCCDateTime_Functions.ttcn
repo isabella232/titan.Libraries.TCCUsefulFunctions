@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// Copyright (c) 2000-2017 Ericsson Telecom AB
+// Copyright (c) 2000-2018 Ericsson Telecom AB
 //
 // All rights reserved. This program and the accompanying materials
 // are made available under the terms of the Eclipse Public License v1.0
@@ -10,7 +10,7 @@
 //
 //  File:               TCCDateTime_Functions.ttcn
 //  Description:        TCC Useful Functions: DateTime Functions
-//  Rev:                R35B
+//  Rev:                R36B
 //  Prodnr:             CNL 113 472
 //
 ///////////////////////////////////////////////////////////////////////////////
@@ -29,6 +29,7 @@
 //
 ///////////////////////////////////////////////////////////////////////////////
 module TCCDateTime_Functions {
+
 
 ///////////////////////////////////////////////////////////////////////////////
 //  Function: f_time
@@ -159,6 +160,54 @@ external function f_ctime_UTC(integer pl_sec) return charstring;
 //
 ///////////////////////////////////////////////////////////////////////////////
 external function f_ctime_ms_UTC(integer pl_msec) return charstring;
+
+//////////////////////////////////////////////////////////////////////////////
+// Function: f_getTpscts
+//
+// Purpose:
+// get special timestamp called Tpscts
+// where 18020714540200 = 2018 February 07 14:54:02 GMT+00
+//
+// Parameters:
+//   pl_sec  - *in* *integer* - time value in seconds since epoc or -1
+//             if -1 is supplied the current time is used
+//   pl_tz   - *in* *integer* - time zone offset in minutes, currently not used
+//
+// Return Value:
+// charstring - tpscts
+//
+// Errors:
+// -
+//
+// Detailed description:
+// -
+//
+///////////////////////////////////////////////////////////////////////////////
+external function f_getTpscts(in integer pl_sec:=-1, in integer pl_tz:=0) return charstring;
+
+//////////////////////////////////////////////////////////////////////////////
+// Function: f_getOctTpscts
+//
+// Purpose:
+// get special timestamp called TP Service Centre Time Stamp (TP SCTS), 3GPP TS 23.040
+// where '81207041452000'O = 2018 February 07 14:54:02 GMT+00
+//
+// Parameters:
+//   pl_sec  - *in* *integer* - time value in seconds since epoc or -1
+//             if -1 is supplied the current time is used
+//   pl_tz   - *in* *integer* - time zone offset in minutes
+//
+// Return Value:
+// charstring - tpscts
+//
+// Errors:
+// -
+//
+// Detailed description:
+// -
+//
+///////////////////////////////////////////////////////////////////////////////
+external function f_getOctTpscts(in integer pl_sec:=-1, in integer pl_tz:=0) return octetstring;
 
 ///////////////////////////////////////////////////////////////////////////////
 //  Function: f_getTimeFormatted

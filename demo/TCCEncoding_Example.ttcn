@@ -11,7 +11,7 @@
 //
 //  File:               TCCEncoding_Example.ttcn
 //  Description:        TCC Useful Functions: Message Encoding Functions.
-//  Rev:                R32A
+//  Rev:                R36B
 //  Prodnr:             CNL 113 472
 //  Updated:            2013-02-05
 //  Contact:            http://ttcn.ericsson.se
@@ -152,5 +152,5 @@ control {
   execute(tc_005_artf265694());   
 }
 
-} with {extension "version R32A"}
+} with {extension "version R36B"}
 

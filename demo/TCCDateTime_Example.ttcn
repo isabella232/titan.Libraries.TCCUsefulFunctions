@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //                                                                           //
-// Copyright Test Competence Center (TCC) ETH 2011                           //
+// Copyright Test Competence Center (TCC) ETH 2018                           //
 //                                                                           //
 // The copyright to the computer  program(s) herein  is the property of TCC. //
 // The program(s) may be used and/or copied only with the written permission //
@@ -11,7 +11,7 @@
 //
 //  File:               TCCDateTime_Example.ttcn
 //  Description:        TCC Useful testcases: DateTime testcases.
-//  Rev:                R32A
+//  Rev:                R36B
 //  Prodnr:             CNL 113 472
 //  Updated:            2011-05-30
 //  Contact:            http://ttcn.ericsson.se
@@ -123,8 +123,25 @@ testcase f_test_ctime_ms_UTC() runs on DateTime_CT
     setverdict(fail);
   }
 }
+// test f_getTpscts testcase
+testcase f_test_getTpscts() runs on DateTime_CT
+{
+  log(" ----------- f_getTpscts ----------- ");
+  log("Tpscts time (f_getTpscts): ");
+  var integer vl_time_int := f_time() - 7200; //GMT+00 time
+  var charstring vl_func := f_getTpscts();
+  var charstring vl_test := f_getTimeFormatted(vl_time_int,"%y%m%d%H%M%S00")
 
-// test f_time2str testcase
+  log("Tpscts (f_getTpscts) - test string: ",vl_test);
+  log("Tpscts (f_getTpscts) - func result: ",vl_func);
+  if (match(vl_test,vl_func)) {
+    setverdict(pass);
+  } else {
+    setverdict(fail);
+  }
+}
+
+// test f_getTimeFormatted testcase
 testcase f_test_getTimeFormatted() runs on DateTime_CT
 {
   log(" ----------- f_getTimeFormatted ----------- ");
@@ -356,6 +373,7 @@ control
   execute(f_test_ctime_ms());
   execute(f_test_ctime_UTC());
   execute(f_test_ctime_ms_UTC());
+  execute(f_test_getTpscts());
   execute(f_test_getTimeFormatted());
   execute(f_test_time2sec());
   execute(f_test_getCurrentDateWithOffset());
@@ -364,6 +382,6 @@ control
   execute(f_test_tic());
   execute(f_test_toc());
   execute(f_test_timeDiff());
-  execute(f_test_HO42714())
+  execute(f_test_HO42714());
 }
 }

@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //                                                                           //
-// Copyright Test Competence Center (TCC) ETH 2013                           //
+// Copyright Test Competence Center (TCC) ETH 2018                           //
 //                                                                           //
 // The copyright to the computer  program(s) herein  is the property of TCC. //
 // The program(s) may be used and/or copied only with the written permission //
@@ -11,9 +11,8 @@
 //
 //  File:               TCCConversion_Example.ttcn
 //  Description:        TCC Useful Functions: Conversion Functions.
-//  Rev:                R32A
+//  Rev:                R36B
 //  Prodnr:             CNL 113 472
-//  Updated:            2013-09-24
 //  Contact:            http://ttcn.ericsson.se
 ///////////////////////////////////////////////
 
@@ -120,7 +119,7 @@ testcase f_test_HM83229() runs on Conversion_CT
   log(" ----------- f_test_HM83229 ----------- ");
   log("Original string: ", ch);
   tmpStr := 
-    f_replaceEveryOccurenceOfSubstring(replacestr, "%2F", "/");
+    f_replaceEveryOccurenceOfSubstring(ch, "%2F", "/");
   log("Replace every occurence of %2F to /: ", tmpStr); 
 
   if (tmpStr == "sip:annc@192.168.73.1:5068;play=http://extMrfc.ericsson.com/play/1")  { setverdict(pass); }
@@ -224,6 +223,56 @@ testcase f_test_isWhitespace() runs on Conversion_CT
   
 }
 
+// test f_substr_token_oct testcase
+testcase f_test_substrTokenOct() runs on Conversion_CT
+{
+  log(" ----------- f_substr_token_oct ----------- ");
+  var octetstring v_octetstr := '000102030405060708090a0b0c0d0e0f'O;
+  var octetstring v_begin := '0102'O;
+  var octetstring v_end := '0b0c'O;
+  var octetstring v_substr := f_substr_token_oct(v_octetstr,v_begin,v_end);
+  if ( v_substr == '0102030405060708090a0b0c'O)  { setverdict(pass); }
+  else { setverdict(fail); }
+  v_begin := ''O;
+  v_substr := f_substr_token_oct(v_octetstr,v_begin,v_end);
+  if ( v_substr == '000102030405060708090a0b0c'O)  { setverdict(pass); }
+  else { setverdict(fail); }
+  v_begin := '0102'O;
+  v_end := ''O;
+  v_substr := f_substr_token_oct(v_octetstr,v_begin,v_end);
+  if ( v_substr == '0102030405060708090a0b0c0d0e0f'O)  { setverdict(pass); }
+  else { setverdict(fail); }
+  v_begin := ''O;
+  v_substr := f_substr_token_oct(v_octetstr,v_begin,v_end);
+  if ( v_substr == '000102030405060708090a0b0c0d0e0f'O)  { setverdict(pass); }
+  else { setverdict(fail); }
+  v_octetstr := ''O;
+  v_substr := f_substr_token_oct(v_octetstr,v_begin,v_end);
+  if ( v_substr == ''O)  { setverdict(pass); }
+  else { setverdict(fail); }
+  
+}
+
+// test f_strstr_oct testcase
+testcase f_test_strstrOct() runs on Conversion_CT
+{
+  log(" ----------- f_substr_token_oct ----------- ");
+  var octetstring v_octetstr := '0001020304050607080903040a0b0c0d0e0f'O;
+  var octetstring v_otc2search := '0304'O;
+  var integer v_index := f_strstr_oct(v_octetstr,v_otc2search);
+  if ( v_index == 3)  { setverdict(pass); }
+  else { setverdict(fail); }
+  v_index := f_strstr_oct(v_octetstr,v_otc2search,4);
+  if (v_index == 10)  { setverdict(pass); }
+  else { setverdict(fail); }
+  v_index := f_strstr_oct(v_octetstr,v_otc2search,11);
+  if (v_index == -1 )  { setverdict(pass); }
+  else { setverdict(fail); }
+  v_index := f_strstr_oct(v_octetstr,''O,11);
+  if (v_index == 0 )  { setverdict(pass); }
+  else { setverdict(fail); }
+}
+
 
 
 // execute all conversion tests
@@ -245,10 +294,12 @@ control
   execute(f_test_compOctetstring());
   execute(f_test_IPv6CreateLiteral());
   execute(f_test_isWhitespace());
+  execute(f_test_substrTokenOct());
+  execute(f_test_strstrOct());
 }
 
 }//end of module
 with {
-extension "version R32A"
+extension "version R36B"
 }
 

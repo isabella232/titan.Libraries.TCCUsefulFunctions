@@ -10,7 +10,7 @@
 //
 //  File:               TCCConversion_Functions.ttcn
 //  Description:        TCC Useful Functions: Conversion Functions
-//  Rev:                R35B
+//  Rev:                R36B
 //  Prodnr:             CNL 113 472
 //
 ///////////////////////////////////////////////////////////////////////////////
@@ -969,5 +969,5 @@ return boolean
 
 }//end of module
 with {
-extension "version R35B"}
+extension "version R36B"}
 

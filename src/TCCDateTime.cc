@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// Copyright (c) 2000-2017 Ericsson Telecom AB
+// Copyright (c) 2000-2018 Ericsson Telecom AB
 //
 // All rights reserved. This program and the accompanying materials
 // are made available under the terms of the Eclipse Public License v1.0
@@ -10,7 +10,7 @@
 //
 //  File:               TCCDateTime.cc
 //  Description:        TCC Useful Functions: DateTime Functions
-//  Rev:                R35B
+//  Rev:                R36B
 //  Prodnr:             CNL 113 472
 //
 ///////////////////////////////////////////////////////////////////////////////
@@ -197,6 +197,124 @@ namespace TCCDateTime__Functions
     struct tm * ti = gmtime(&ct);
     return formatTimeString(ti,msec);
   }
+
+
+
+//////////////////////////////////////////////////////////////////////////////
+// Function: f__getTpscts
+//
+// Purpose:
+// get special timestamp called Tpscts
+// where 18020714540200 = 2018 February 07 14:54:02 GMT+00
+//
+// Parameters:
+//   pl_sec  - *in* *integer* - time value in seconds since epoc or -1
+//             if -1 is supplied the current time is used
+//   pl_tz   - *in* *integer* - time zone offset in seconds, currently not used
+//
+// Return Value:
+// charstring - tpscts
+//
+// Errors:
+// -
+//
+// Detailed description:
+// -
+//
+///////////////////////////////////////////////////////////////////////////////
+  CHARSTRING f__getTpscts(const INTEGER& pl__sec, const INTEGER& pl__tz)
+  {
+  time_t rawtime;
+  struct tm *ptm;
+  if(pl__sec == -1){
+    time(&rawtime);
+  } else {
+    rawtime = pl__sec.get_long_long_val();
+  }
+  ptm = gmtime(&rawtime);
+  char result[15];
+  sprintf(result, "%02d%02d%02d%02d%02d%02d00",
+      ptm->tm_year%100,
+      ptm->tm_mon+1,
+      ptm->tm_mday,
+      ptm->tm_hour,
+      ptm->tm_min,
+      ptm->tm_sec);
+  return result;
+  }
+
+
+/*
+Semi octet
+
+Each half octet within the field represents one decimal digit. 
+The octets with the lowest octet numbers shall contain the most significant decimal digits.
+Within one octet, the half octet containing the bits with bit numbers 0 to 3, shall 
+represent the most significant digit.
+
++---------+---------+
+| Digit 2 | Digit 1 |
++---------+---------+
+
+if ch == 17 -> return 0x71
+
+*/
+
+unsigned char encode_2_semioctet(unsigned char ch){
+  return ((ch % 10) << 4 ) | ( ch / 10 );
+}
+
+//////////////////////////////////////////////////////////////////////////////
+// Function: f_getOctTpscts
+//
+// Purpose:
+// get special timestamp called TP Service Centre Time Stamp (TP SCTS), 3GPP TS 23.040
+// where '81207041452000'O = 2018 February 07 14:54:02 GMT+00
+//
+// Parameters:
+//   pl_sec  - *in* *integer* - time value in seconds since epoc or -1
+//             if -1 is supplied the current time is used
+//   pl_tz   - *in* *integer* - time zone offset in minutes
+//
+// Return Value:
+// charstring - tpscts
+//
+// Errors:
+// -
+//
+// Detailed description:
+// -
+//
+///////////////////////////////////////////////////////////////////////////////
+OCTETSTRING f__getOctTpscts(const INTEGER& pl__sec, const INTEGER& pl__tz)
+{
+  time_t rawtime;
+  struct tm *ptm;
+  if(pl__sec == -1){
+    time(&rawtime);
+  } else {
+    rawtime = pl__sec.get_long_long_val() + (pl__tz.get_long_long_val() * 60 );
+  }
+  
+  ptm = gmtime(&rawtime);
+  
+  unsigned char tpscts[7];
+  
+  tpscts[0] = encode_2_semioctet(ptm->tm_year%100);
+  tpscts[1] = encode_2_semioctet(ptm->tm_mon+1);
+  tpscts[2] = encode_2_semioctet(ptm->tm_mday);
+  tpscts[3] = encode_2_semioctet(ptm->tm_hour);
+  tpscts[4] = encode_2_semioctet(ptm->tm_min);
+  tpscts[5] = encode_2_semioctet(ptm->tm_sec);
+  tpscts[6] = encode_2_semioctet(abs(pl__tz/15));
+  if(pl__tz<0){
+    tpscts[6] |= 0x08; // set the bit 3 to 1 -> time zoen is negative
+  }
+
+
+  return OCTETSTRING(7, tpscts);
+}
+  
 
 ///////////////////////////////////////////////////////////////////////////////
 //  Function: f__getTimeFormatted

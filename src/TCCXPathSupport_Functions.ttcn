@@ -10,7 +10,7 @@
 //
 //  File:               TCCXPathSupport_Functions.ttcn
 //  Description:        TCC Useful Functions: XPath Support Functions
-//  Rev:                R35B
+//  Rev:                R36B
 //  Prodnr:             CNL 113 472
 //
 ///////////////////////////////////////////////////////////////////////////////
