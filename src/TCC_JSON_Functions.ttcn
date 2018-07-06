@@ -1,0 +1,273 @@
+///////////////////////////////////////////////////////////////////////////////
+//
+// Copyright (c) 2000-2018 Ericsson Telecom AB
+//
+// All rights reserved. This program and the accompanying materials
+// are made available under the terms of the Eclipse Public License v2.0
+// which accompanies this distribution, and is available at
+// https://www.eclipse.org/org/documents/epl-2.0/EPL-2.0.html
+///////////////////////////////////////////////////////////////////////////////
+//
+//  File:               TCC_JSON_Functions.ttcn
+//  Description:        TCC Useful Functions: JSON Functions
+//  Rev:                R36B
+//  Prodnr:             CNL 113 472
+//
+///////////////////////////////////////////////////////////////////////////////
+
+///////////////////////////////////////////////////////////////////////////////
+//  Module: TCC_JSON_Functions
+// 
+//  Purpose:
+//    This module supports manipulation of JSON documents
+// 
+//  Module Parameters:
+//    The following module parameters affect the return values of all functions
+//    in this module that return a JSON document.
+//
+//    JSON_PRETTY_PRINTING - integer - Indicates whether to use pretty or
+//                                     compact printing, and how many indenting
+//                                     characters should be added in case of
+//                                     pretty printing.
+//                                     -1 means compact printing (default),
+//                                     0 or greater means pretty printing.
+//
+//    JSON_INDENT_CHAR - charstring - Sets the indenting character used if
+//                                    pretty printing is set.
+//                                    Must contain a single character.
+//                                    Default: " "
+//
+//    JSON_ENSURE_ASCII - boolean - Ensures that the JSON document only contains
+//                                  ASCII characters. Non-ASCII characters in
+//                                  JSON strings are escaped using the '\uHHHH'
+//                                  notation. (Not set by default.)
+// 
+//  Module depends on:
+//    JSON for Modern C++ (version 3.1.2), https://github.com/nlohmann/json
+//
+//    Note: Due to this dependency any projects using this module must be built
+//    with C++11 or newer (e.g.: g++ compiler option '-std=c++11').
+//
+///////////////////////////////////////////////////////////////////////////////
+
+module TCC_JSON_Functions {
+
+type charstring IndentChar length (1);
+
+modulepar integer JSON_PRETTY_PRINTING := -1;
+modulepar IndentChar JSON_INDENT_CHAR := " ";
+modulepar boolean JSON_ENSURE_ASCII := false;
+
+
+///////////////////////////////////////////////////////////////////////////////
+//  Function: JSON_to_CBOR
+// 
+//  Purpose:
+//    Converts JSON to CBOR. 
+//
+//  Parameters:
+//    pl_json_str - *in* *universal charstring* - JSON document
+// 
+//  Return Value:
+//    octetstring - resulting CBOR data
+//
+//  Errors:
+//    A dynamic test case error is produced if the first parameter does not
+//    contain a valid JSON document.
+// 
+//  Detailed description:
+//    The JSON document is first converted to UTF-8 format.
+//    This string is converted to CBOR using the C++ JSON module.
+// 
+///////////////////////////////////////////////////////////////////////////////
+external function JSON_to_CBOR(in universal charstring pl_json_str) return octetstring
+
+
+///////////////////////////////////////////////////////////////////////////////
+//  Function: CBOR_to_JSON
+// 
+//  Purpose:
+//    Converts CBOR to JSON. 
+//
+//  Parameters:
+//    pl_json_str - *in* *octetstring* - CBOR data
+// 
+//  Return Value:
+//    universal charstring - resulting JSON document
+//
+//  Errors:
+//    A dynamic test case error is produced if the first parameter does not
+//    contain valid CBOR data (multi-octet characters must be in UTF-8 format).
+// 
+//  Detailed description:
+//    The CBOR data is first converted to a JSON document in UTF-8 format using
+//    the C++ JSON module. This conversion is affected by the module parameters
+//    JSON_PRETTY_PRINTING, JSON_INDENT_CHAR and JSON_ENSURE_ASCII.
+//    The JSON document is then converted to a universal charstring.
+// 
+///////////////////////////////////////////////////////////////////////////////
+external function CBOR_to_JSON(in octetstring pl_cbor_str) return universal charstring
+
+
+///////////////////////////////////////////////////////////////////////////////
+//  Function: JSON_to_MessagePack
+// 
+//  Purpose:
+//    Converts JSON to MessagePack. 
+//
+//  Parameters:
+//    pl_json_str - *in* *universal charstring* - JSON document
+// 
+//  Return Value:
+//    octetstring - resulting MessagePack data
+//
+//  Errors:
+//    A dynamic test case error is produced if the first parameter does not
+//    contain a valid JSON document.
+// 
+//  Detailed description:
+//    The JSON document is first converted to UTF-8 format.
+//    This string is converted to MessagePack using the C++ JSON module.
+// 
+///////////////////////////////////////////////////////////////////////////////
+external function JSON_to_MessagePack(in universal charstring pl_json_str) return octetstring
+
+
+///////////////////////////////////////////////////////////////////////////////
+//  Function: MessagePack_to_JSON
+// 
+//  Purpose:
+//    Converts MessagePack to JSON. 
+//
+//  Parameters:
+//    pl_json_str - *in* *octetstring* - MessagePack data
+// 
+//  Return Value:
+//    universal charstring - resulting JSON document
+//
+//  Errors:
+//    A dynamic test case error is produced if the first parameter does not
+//    contain valid MessagePack data (multi-octet characters must be in UTF-8 format).
+// 
+//  Detailed description:
+//    The MessagePack data is first converted to a JSON document in UTF-8 format using
+//    the C++ JSON module. This conversion is affected by the module parameters
+//    JSON_PRETTY_PRINTING, JSON_INDENT_CHAR and JSON_ENSURE_ASCII.
+//    The JSON document is then converted to a universal charstring.
+// 
+///////////////////////////////////////////////////////////////////////////////
+external function MessagePack_to_JSON(in octetstring pl_msgpack_str) return universal charstring
+
+
+///////////////////////////////////////////////////////////////////////////////
+//  Function: JSON_to_UBJSON
+// 
+//  Purpose:
+//    Converts JSON to UBJSON. 
+//
+//  Parameters:
+//    pl_json_str - *in* *universal charstring* - JSON document
+//    pl_use_size - *in* *boolean* - use size annotations for array and object types
+//                                   (default: false)
+//    pl_use_type - *in* *boolean* - use type annotations for array and object types
+//                                   (can only be true if pl_use_size is also true,
+//                                   default: false)
+// 
+//  Return Value:
+//    octetstring - resulting UBJSON data
+//
+//  Errors:
+//    A dynamic test case error is produced if the first parameter does not contain
+//    a valid JSON document, or if pl_use_type is true, but pl_use_size is false.
+// 
+//  Detailed description:
+//    The JSON document is first converted to UTF-8 format.
+//    This string is converted to UBJSON using the C++ JSON module, with the
+//    size and type annotation settings specified in the parameters.
+// 
+///////////////////////////////////////////////////////////////////////////////
+external function JSON_to_UBJSON(in universal charstring pl_json_str,
+                                 in boolean pl_use_size := false,
+                                 in boolean pl_use_type := false) return octetstring
+
+
+///////////////////////////////////////////////////////////////////////////////
+//  Function: UBJSON_to_JSON
+// 
+//  Purpose:
+//    Converts UBJSON to JSON. 
+//
+//  Parameters:
+//    pl_json_str - *in* *octetstring* - UBJSON data
+// 
+//  Return Value:
+//    universal charstring - resulting JSON document
+//
+//  Errors:
+//    A dynamic test case error is produced if the first parameter does not
+//    contain valid UBJSON data (multi-octet characters must be in UTF-8 format).
+// 
+//  Detailed description:
+//    The UBJSON data is first converted to a JSON document in UTF-8 format using
+//    the C++ JSON module. This conversion is affected by the module parameters
+//    JSON_PRETTY_PRINTING, JSON_INDENT_CHAR and JSON_ENSURE_ASCII.
+//    The JSON document is then converted to a universal charstring.
+// 
+///////////////////////////////////////////////////////////////////////////////
+external function UBJSON_to_JSON(in octetstring pl_ubjson_str) return universal charstring
+
+
+///////////////////////////////////////////////////////////////////////////////
+//  Function: flatten_JSON
+// 
+//  Purpose:
+//    Flattens a JSON document. 
+//
+//  Parameters:
+//    pl_json_str - *in* *universal charstring* - input JSON document
+// 
+//  Return Value:
+//    universal charstring - flattened JSON document
+//
+//  Errors:
+//    A dynamic test case error is produced if the first parameter does not
+//    contain a valid JSON document.
+// 
+//  Detailed description:
+//    The JSON document is first converted to UTF-8 format.
+//    This string is flattened using the C++ JSON module.
+//    The format of the flattened string is determined by the module parameters
+//    JSON_PRETTY_PRINTING, JSON_INDENT_CHAR and JSON_ENSURE_ASCII.
+//    The JSON document is then converted back to a universal charstring.
+// 
+///////////////////////////////////////////////////////////////////////////////
+external function flatten_JSON(in universal charstring pl_json_str) return universal charstring
+
+
+///////////////////////////////////////////////////////////////////////////////
+//  Function: unflatten_JSON
+// 
+//  Purpose:
+//    Flattens a JSON document. 
+//
+//  Parameters:
+//    pl_json_str - *in* *universal charstring* - flattened JSON document
+// 
+//  Return Value:
+//    universal charstring - unflattened JSON document
+//
+//  Errors:
+//    A dynamic test case error is produced if the first parameter does not
+//    contain a valid and flattened JSON document.
+// 
+//  Detailed description:
+//    The JSON document is first converted to UTF-8 format.
+//    This string is unflattened using the C++ JSON module.
+//    The format of the unflattened string is determined by the module parameters
+//    JSON_PRETTY_PRINTING, JSON_INDENT_CHAR and JSON_ENSURE_ASCII.
+//    The JSON document is then converted back to a universal charstring.
+// 
+///////////////////////////////////////////////////////////////////////////////
+external function unflatten_JSON(in universal charstring pl_json_str) return universal charstring
+
+}

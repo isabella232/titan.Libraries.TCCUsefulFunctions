@@ -1,0 +1,57 @@
+///////////////////////////////////////////////////////////////////////////////
+//
+// Copyright (c) 2000-2018 Ericsson Telecom AB
+//
+// All rights reserved. This program and the accompanying materials
+// are made available under the terms of the Eclipse Public License v2.0
+// which accompanies this distribution, and is available at
+// https://www.eclipse.org/org/documents/epl-2.0/EPL-2.0.html
+///////////////////////////////////////////////////////////////////////////////
+//
+//  File:               TCC_JSON_Example.ttcn
+//  Description:        TCC Useful Functions: JSON Functions
+//  Rev:                R36B
+//  Prodnr:             CNL 113 472
+//
+///////////////////////////////////////////////////////////////////////////////
+
+module TCC_JSON_Example {
+
+import from TCC_JSON_Functions all;
+
+control {
+  var universal charstring x1 := "{ \"a\" : 1, \"b\" : \"abc\", \"c\" : [ -1, 0.6, null, false ] }";
+  log("JSON value: ", x1);
+  log("--------------------------------------------------");
+  
+  var octetstring mp1 := JSON_to_MessagePack(x1);
+  log("To MessagePack: ", mp1);
+  log("From MessagePack: ", MessagePack_to_JSON(mp1));
+  var octetstring mp2 := '82A7'O & char2oct("compact") & 'C3A6'O & char2oct("schema") & '00'O;
+  log("From MessagePack (", mp2, "): ", MessagePack_to_JSON(mp2));
+  var octetstring mp3 := '81A161A40110C591'O;
+  log("From MessagePack (", mp3, "): ", MessagePack_to_JSON(mp3));
+  log("--------------------------------------------------");
+  
+  var octetstring ubj1 := JSON_to_UBJSON(x1);
+  var octetstring ubj2 := JSON_to_UBJSON(x1, true);
+  var octetstring ubj3 := JSON_to_UBJSON(x1, true, true);
+  log("To UBJSON (basic):             ", ubj1);
+  log("To UBJSON (use size):          ", ubj2);
+  log("To UBJSON (use size and type): ", ubj3);
+  log("From UBJSON (1st value): ", UBJSON_to_JSON(ubj1));
+  log("From UBJSON (2nd value): ", UBJSON_to_JSON(ubj2));
+  log("From UBJSON (3rd value): ", UBJSON_to_JSON(ubj3));
+  log("--------------------------------------------------");
+  
+  var octetstring cb := JSON_to_CBOR(x1);
+  log("To CBOR: ", cb);
+  log("From CBOR: ", CBOR_to_JSON(cb));
+  log("--------------------------------------------------");
+  
+  var universal charstring x2 := flatten_JSON(x1);
+  log("Flattened: ", x2);
+  log("Unflattened: ", unflatten_JSON(x2));
+}
+
+} // end of module
