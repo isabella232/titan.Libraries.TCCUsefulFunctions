@@ -4,7 +4,7 @@ Format: 1.4
 Title: TCCUsefulFunctions
 SubTitle: R12A02
 
-Footer: Copyright 2012 Test Competence Center<br/><a href="http://ttcn.ericsson.se/">http://ttcn.ericsson.se</a>
+Footer: Copyright (c) 2000-2019 Ericsson Telecom AB<br/><a href="http://ttcn.ericsson.se/">http://ttcn.ericsson.se</a>
 
 # You can add a timestamp to your documentation like one of these:
 # Timestamp: Generated on month day, year
