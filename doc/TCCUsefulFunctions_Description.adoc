@@ -1,14 +1,6 @@
----
-Author: Gábor Szalai
-Version: 1551-CNL 113 472, Rev. AJ
-Date: 2018-05-29
-
----
 = TCC Useful Functions for TTCN-3 Toolset with TITAN, Description
 :author: Gábor Szalai
-:revnumber: 1551-CNL 113 472, Rev. AJ
-:revdate: 2018-05-29
-:toc:
+:toc: left
 
 == How to Read This Document
 
@@ -18,29 +10,13 @@ This is the Function Specification for the TCC Useful Functions. The modules are
 
 The knowledge of the TITAN TTCN-3 Test Executor <<_3, [3]>> and the TTCN-3 language <<_1, [1]>> is essential. Other documents that the reader should be familiar with are referenced in the consecutive section of each function.
 
-= Functionality
+== Functionality
 
 The functions described in this document are TTCN-3 or external TTCN-3 functions. TTCN-3 functions are implemented in TTCN-3 language; external TTCN-3 functions are implemented in C++.
 
-== Implemented Protocols
+=== Backward Incompatibilities
 
-None.
-
-== Supported Standards
-
-None.
-
-== Routing Functionality
-
-Routing functionality is not performed.
-
-== Modified and Non-Implemented Protocol Elements
-
-None.
-
-== Backward Incompatibilities
-
-=== R35A
+==== R35A
 
 The non-open source `TCCSecurity_Functions` are moved to a separate product.
 
@@ -88,7 +64,7 @@ If the non-moved functions are used in the project the `TCCOpenSecurity_Function
 ** `f_calculate128_EEA2`
 
 
-== System Requirements
+=== System Requirements
 
 In order to operate any of the Useful Functions the following system requirements must be satisfied:
 
@@ -96,7 +72,7 @@ In order to operate any of the Useful Functions the following system requirement
 
 Further system requirements, if any, are listed in the consecutive section of each function.
 
-== Installation
+=== Installation
 
 Since the Useful Functions are used as a part of the TTCN-3 test environment this requires TTCN-3 Test Executor to be installed before any operation of these functions. For more details on the installation of TTCN-3 Test Executor see the relevant section of <<_2, [2]>>.
 
@@ -107,11 +83,42 @@ Copy the files listed in the section related to the specific functions to the di
 * Import the TTCN-3 module containing the declaration of the functions to the modules that will use them.
 * Create _Makefile_ or modify the existing one. For more detail see the relevant section of <<_3, [3]>>.
 
-= Functions
+== Functions
 
-= Message Encoding Functions
+== UUID functions
 
-== Overview
+=== Overview
+
+Generates and formats RFC 4122 compatible version 3,4,5 UUIDs
+
+=== Function Definitions
+
+The following functions are defined:
+
+* `f_gen_UUID_v3(in TCC_UUID pl_nameSpaceId, in octetstring pl_name) return TCC_UUID`
++
+Generates version 3 UUID
+
+* `f_gen_UUID_v4() return TCC_UUID`
++
+Generates version 4 UUID
+
+* `f_gen_UUID_v5(in TCC_UUID pl_nameSpaceId, in octetstring pl_name) return TCC_UUID`
++
+Generates version 5 UUID
+
+* `f_UUIDToCharstring(in TCC_UUID pl_uuid) return charstring`
++
+Converts the TCC_UUID into charstring
+
+* `f_UUIDToOctetstring( in TCC_UUID pl_uuid) return octetstring`
++
+Converts the TCC_UUID into octetstring
+
+
+== Message Encoding Functions
+
+=== Overview
 
 Encoding functions can be used to encode data to a specific format or decode encoded data.
 
@@ -120,9 +127,15 @@ Encoding functions are implemented in the following files:
 * __TCCEncoding_Functions.ttcn__: external TTCN-3 function declarations
 * __TCCEncoding.cc__: source file of the functions
 
-== Function Definitions
+=== Function Definitions
 
 The following functions are defined in Encoding Functions:
+
+* `enc_Base64(in octetstring p_msg, in BaseEncoding_Alphabet p_alphabet:=Base64_Default) return charstring;`
+* `dec_Base64(in charstring p_b64, in BaseEncoding_Alphabet p_alphabet:=Base64_Default) return octetstring`
++
+Encodes and decodes Baase64 strings as described in RFC4648.
+
 
 * `external function enc_MIME_Base64(in octetstring p_msg) return charstring;`
 +
@@ -139,6 +152,15 @@ Encodes the parameter `msg` to LDIF Base64 format according to <<_5, [5]>>.
 * `external function dec_LDIF_Base64(in charstring p_b64) return octetstring;`
 +
 Decodes an LDIF Base64 encoded character string to octetstring.
+
+* `external function enc_Base32(in octetstring p_msg, in BaseEncoding_Alphabet p_alphabet:=Base32_Default) return charstring;`
++
+Encodes the parameter `p_msg` to Base32 format according to RFC 4648. Both the default and the Extended Hex alphabet are supported.
+
+* `external function dec_Base32(in charstring p_b32, in BaseEncoding_Alphabet p_alphabet:=Base32_Default) return octetstring;`
++
+Decodes an Base32 encoded character string to octetstring.
+
 
 * `function f_encGSM7bit(in universal charstring pl_str) return octetstring`
 +
@@ -180,11 +202,20 @@ Encodes `<MobileL3_CalledPartyBCDNumber>` type to octetstring format. (Encoding 
 +
 The function converts a hexstring into TBCD-String format.
 
-== Error Messages
+* `f_enc_percent(in charstring pl_data, in charstring pl_space_encoding := "%20") return charstring`
++
+Encodes the `pl_data` using the percent encoding defined in RFC 3986. The `pl_space_encoding` controls the encoding of teh space character: `"+"` or `"%20"`
+
+* `f_dec_percent(in charstring pl_pct_data, out charstring pl_data ) return integer`
++
+Decodes the percent encoded string. Returns 0 on success or 1 in the case of failure.
+
+
+=== Error Messages
 
 None.
 
-== Warning Messages
+=== Warning Messages
 
 `*Warning: Invalid character in Base64 encoded data: …*`
 
@@ -206,7 +237,7 @@ Only extensions contained in section 6.2.1.1 of <<_12, [12]>> can be correctly d
 
 `f_enc_TBCD` returns an empty octetstring and gives this warning if the encoding of an invalid TBCD character is attempted.
 
-== Examples
+=== Examples
 
 [source]
 ----
@@ -264,9 +295,9 @@ control {
 }
 ----
 
-= Test Environment Handling Functions
+== Test Environment Handling Functions
 
-== Overview
+=== Overview
 
 Environment Handling Functions can be used to get or set environment variables.
 
@@ -275,7 +306,7 @@ Environment Handling Functions are implemented in the following files:
 * __TCCEnv_Functions.ttcn__: external TTCN-3 function declarations
 * _TCCEnv.cc_: source code of the functions
 
-== Function Definitions
+=== Function Definitions
 
 The following Environment Handling Functions are defined:
 
@@ -287,17 +318,17 @@ Returns the environment variable `p_env_name`.
 +
 Sets the environment variable `p_env_name` to `p_env_value`. Returns false on error, true on success.
 
-== Error Messages
+=== Error Messages
 
 None.
 
-== Warning Messages
+=== Warning Messages
 
 `*putenv failed with error code …*`
 
 An error happened while setting the environment variable.
 
-== Examples
+=== Examples
 
 [source]
 ----
@@ -321,9 +352,9 @@ control {
 }
 ----
 
-= Network Interface Functions
+== Network Interface Functions
 
-== Overview
+=== Overview
 
 Network Interface Functions can be used to modify interface related settings. For example, get/set IP address, set up/down interface.
 
@@ -335,7 +366,7 @@ Network Interface Functions are implemented in the following files:
 * _TCCInterface.cc_
 * __TCCInterface_ip.h__
 
-== Function Definitions
+=== Function Definitions
 
 The following Network Interface Functions are defined.
 
@@ -472,7 +503,7 @@ NOTE: The returned lists are not compatible with any other record of *charstring
 +
 Validates the supplied `pl_host` and returns `_true_` if it is a valid`__` IP address. The validation can be restricted to IPv4 or IPv6 with the `pl_ipType` parameter.
 
-== Error Messages
+=== Error Messages
 
 `*Unbound argument '<parameter>'.*`
 
@@ -510,7 +541,7 @@ No more virtual interfaces can be set up.
 
 Network Interface Functions are supported on Linux and Solaris only.
 
-== Warning Messages
+=== Warning Messages
 
 Warning messages appear if the kernel could not execute the requested command.
 
@@ -536,7 +567,7 @@ Warning messages appear if the kernel could not execute the requested command.
 
 `*Could not set down interface '<interface>'.*`
 
-== Examples
+=== Examples
 
 [source]
 ----
@@ -579,14 +610,14 @@ module TCCInterface_Example {
 3.3.6	Makefile
 ----
 
-== Makefile
+=== Makefile
 
 The `–lresolv` has to be added to `SOLARIS8_LIBS`.
 
 [[file-i-o-functions]]
-= File I/O Functions
+== File I/O Functions
 
-== Overview
+=== Overview
 
 This bunch of external functions enables you to handle files from TTCN-3. These functions use the POSIX file I/O functions underneath, and they behave similarly. For examples see __TCCFileIO_Example.ttcn__.
 
@@ -597,7 +628,7 @@ File I/O Functions are implemented in the following files:
 * __TCCFileIO_Functions.ttcn__
 * _TCCFileIO.cc_
 
-== Function Definitions
+=== Function Definitions
 
 The following File I/O Functions are defined. For the exact API check the generated NaturalDocs documentation.
 
@@ -700,7 +731,23 @@ This function returns a `FIO_FileInfo`, which contains several information about
 ** *lastFileModification* - time of last status change in seconds since 1970
 --
 
-== Error Messages
+* `external function f_FIO_read_data_csv_record(in integer pl_fd, out TCC_csv_record pl_record, in charstring pl_field_sep:=","  ) return integer`
++ 
+Reads one csv record from the specified file. The field separator can be specified via the `_pl_field_sep_` parameter. The file should be opened with function `_f_FIO_open_rdonly_` and closed `_f_FIO_close_`
++
+Return value:
++
+--
+** *1* - One record was read successfully
+** *0* - There is no more records in the file, nothing was read
+** *-1* - There was an error during the read operation
+--
+
+* `function f_FIO_read_csv_file(in charstring pl_filename, out TCC_csv_record_list pl_record_list, in charstring pl_field_sep:="," ) return integer`
++
+Reads and parses the whole content of the csv file. Returns the number of read csv records.
+
+=== Error Messages
 
 These functions always return `_"-1"_` if an error occurs during the execution. The return values must be checked to detect these situations. The corresponding error message/code is available through calling `f_FIO_get_error_string`/`f_FIO_get_error_code`. By default the functions do not write anything to the standard output/error. If you want to get error reports on the screen, the functions must be compiled with `-DVERBOSE_DEBUG` or define a macro `VERBOSE_DEBUG`.
 
@@ -734,11 +781,11 @@ There’s not enough memory to increase the size of the input buffer.
 
 EOF is reached unexpectedly.
 
-== Warning Messages
+=== Warning Messages
 
 None.
 
-== Examples
+=== Examples
 
 [source]
 ----
@@ -791,9 +838,9 @@ control
 }
 ----
 
-= Assertion Functions
+== Assertion Functions
 
-== Overview
+=== Overview
 
 Assertion functions enable you to apply assertion from TTCN-3.
 
@@ -804,7 +851,7 @@ Assertion Functions are implemented in the following files:
 * __TCCAssertion_Functions.ttcn__
 * _TCCAssertion.cc_
 
-== Function Definitions
+=== Function Definitions
 
 The following Assertion Functions are defined. For the exact API check the generated NaturalDocs documentation.
 
@@ -812,21 +859,21 @@ The following Assertion Functions are defined. For the exact API check the gener
 +
 If assertion is activated, `f_assert` assures that the `pl_predicate` parameter is true at call of the function. Else it fails with dynamic test case error and displays assertion message (`pl_assertMessage`) as well. To use assertion, optimized build has to be turned on with the –O2 switch and NDEBUG shall not be defined. By defining `NDEBUG`, the main block of `f_assert` will be empty, therefore in case of enabled optimized build (-O2) the function is not compiled with the generated code. This results higher debug capability with higher performance.
 
-== Error Messages
+=== Error Messages
 
 None.
 
-== Warning Messages
+=== Warning Messages
 
 None.
 
-== Examples
+=== Examples
 
 None.
 
-= Conversion Functions
+== Conversion Functions
 
-== Overview
+=== Overview
 
 This set of functions enables you to apply conversions from TTCN-3 that have been not supported by TTCN-3 before, for example,  universal charstring conversions.
 
@@ -837,7 +884,7 @@ Conversion Functions are implemented in the following files:
 * __TCCConversion_Functions.ttcn__
 * _TCCConversion.cc_
 
-== Function Definitions
+=== Function Definitions
 
 The following Conversion Functions are defined. For the exact API check the generated NaturalDocs documentation.
 
@@ -937,6 +984,26 @@ The function returns a list of substring from a value. The starting and the endi
 +
 The `f_strstr` function locates the first occurrence of the string s2 in string s1 and returns an index of starting point of the located string, or `_-1_` if the string is not found. If s2 is an empty, the function returns `_0_`. The offset determines the starting point of the search. Any occurrence of the s2 before the offset is ignored. The offset is optional.
 
+* `f_split(in charstring str, in charstring split_token) return TCC_Conversion_ch_list`
++
+The f_split function breaks up a string at the specified separator and returns a list of strings.
+
+* `f_enc_Name_labels_from_list(TCC_Conversion_ch_list pl_namelist) return octetstring`
++
+The encodes the list of labels as specified in the RFC 1035
+
+* `f_enc_Name_labels_from_string(charstring pl_name) return octetstring`
++
+The encodes the names as specified in the RFC 1035
+
+* `f_dec_Name_labels_to_list(in octetstring pl_value) return TCC_Conversion_ch_list`
++
+The decodes the list of labels from encoded octetstring encoded as specified in the RFC 1035
+
+* `f_dec_Name_labels_to_string(in octetstring pl_value) return charstring`
++
+The decodes the names as specified in the RFC 1035
+
 * `function f_OctetIpv4(in charstring pl_ip) return octetstring;`
 +
 Converts a IPv4 dot noted address to its octetstring representation. On error, `_"O"_` is returned.
@@ -961,15 +1028,15 @@ Checks if the input string consists of only white space characters. If the strin
 +
 Pads a string to fit in a specified length (`pl_length`). The `pl_string` will be prepended by the first character of `pl_pad` to reach the length specified by `pl_length`.
 
-== Error Messages
+=== Error Messages
 
 None.
 
-== Warning Messages
+=== Warning Messages
 
 None.
 
-== Examples
+=== Examples
 
 The following code part shows an example for using replace pattern functions. The input string (replacestr) is "AaACCCAaABbB" and the pattern that every occurrence shall be replaced is `"([Aa]#(3,3)"`. The substitution string is `"<3A>"`. So the aim of this short test is to change three-character long A or a sequences to `"<3A>"`. Notice that pattern shall match to the whole string and pattern to swap shall be grouped with opening and closing brackets (). Awaited response (rStr4) is `<3A>CCC<3A>BbB`.
 
@@ -990,13 +1057,13 @@ testcase f_test_replaceEveryOccuranceOfPattern() runs on Conversion_CT
 }
 ----
 
-== Makefile
+=== Makefile
 
 External functions, `f_substr_token_oct` and `f_strstr_oct` use memmem, so `D_GNU_SOURCE` flag should be added to the `CPPFLAGS` in case of Cygwin environment.
 
-== Date and Time Functions
+=== Date and Time Functions
 
-=== Overview
+==== Overview
 
 Date and Time Functions enable you to handle date and time from TTCN-3.
 
@@ -1007,7 +1074,7 @@ Date and Time Functions are implemented in the following files:
 * __TCCDateTime_Functions.ttcn__
 * _TCCDateTime.cc_
 
-=== Function Definitions
+==== Function Definitions
 
 The following Date and Time Functions are defined. For the exact API check the generated NaturalDocs documentation.
 
@@ -1018,6 +1085,10 @@ Provides the current calendar time of the system in seconds.
 * `external function f_time_ms() return integer;`
 +
 Provides the current calendar time of the system in milliseconds.
+
+* `external function f_time_micros() return integer;`
++
+Provides the current calendar time of the system in microseconds.
 
 * `external function f_ctime(integer pl_sec) return charstring;`
 +
@@ -1072,6 +1143,14 @@ Provides the current calendar time in a formatted way. Format string:
 +
 The specifiers whose description is marked with an asterisk (*) are locale-dependent.
 
+* `external function f_getTimeFormattedUTC(integer pl_sec, charstring pl_format) return charstring;`
++
+Provides the current calendar UTC time in a formatted way. Format string is the same as for `f_getTimeFormatted` function
+
+* `external function f_parseTimeFormatted(charstring pl_time, charstring pl_format, boolean pl_isUTC:=false) return integer;`
++
+Parses the pl_time based on the format string pl_format. If the pl_isUTC is true, the pl_time treated as UTC time.
+
 * `external function f_time2sec(integer pl_year, integer pl_mon, integer pl_day, integer pl_hour, integer pl_min, integer pl_sec) return integer;`
 +
 Converts date format to seconds since January 1, 1970. The date treated as local time.
@@ -1117,15 +1196,15 @@ Returns the special timestamp called TP Service Centre Time Stamp (TP SCTS), 3GP
 ** `pl_tz` - \*in* \*integer* - time zone offset in minutes
 
 
-=== Error Messages
+==== Error Messages
 
 None.
 
-=== Warning Messages
+==== Warning Messages
 
 None.
 
-=== Examples
+==== Examples
 
 The following code part shows some examples for date and time functions.
 
@@ -1202,9 +1281,9 @@ testcase f_test_getCurrentGMTDate() runs on DateTime_CT
 }
 ----
 
-= Maths Functions
+== Maths Functions
 
-== Overview
+=== Overview
 
 Maths functions enable you to use mathematical functions straightforward from TTCN-3.
 
@@ -1216,7 +1295,7 @@ Maths Functions are implemented in the following files:
 * __TCCMaths_GenericTypes.ttcn__
 * _TCCMaths.cc_
 
-== Function Definitions
+=== Function Definitions
 
 The following Maths Functions are defined:
 
@@ -1374,15 +1453,15 @@ Return a random Poisson value by the given Poisson table and lambda. Regenerate 
 +
 Return the exponential random variable for a given lambda.
 
-== Error Messages
+=== Error Messages
 
 None.
 
-== Warning Messages
+=== Warning Messages
 
 None.
 
-== Examples
+=== Examples
 
 The first example shows usage of `f_sinVL` function. Let the following definitions be valid:
 
@@ -1464,9 +1543,9 @@ testcase f_test_maxIL() runs on Maths_CT
 }
 ----
 
-= Security Functions
+== Security Functions
 
-== Overview
+=== Overview
 
 Security Functions enable you to use some security related functions from TTCN-3.
 
@@ -1474,14 +1553,13 @@ These Security Functions were tested under Linux/Solaris/Cygwin platforms.
 
 Security Functions are implemented in the following files:
 
-* __TCCSecurity_Functions.ttcn__
-* _TCCSecurity.cc_
+* __TCCOpenSecurity_Functions.ttcn__
+* _TCCOpenSecurity.cc_
 
-== Function Definitions
+=== Function Definitions
 
-The `pl_OP` input of the following functions is the Operator Variant OP that configures the AKA Algorithms to generate the proper keys for the Operator who will verify the generated keys.
 
-The following Security Functions are defined. For the exact API check the generated NaturalDocs documentation.
+The following Security Functions are defined:
 
 [source]
 ----
@@ -1504,16 +1582,111 @@ Overview: http://en.wikipedia.org/wiki/Digest_access_authentication
 
 [source]
 ----
-*external function f_calculateDigestHA1(
+external function f_calculateDigestHA1(
   charstring nonce,
   charstring cnonce,
   charstring user,
   charstring realm,
   charstring passwd,
-  charstring alg) return charstring;*
+  charstring alg) return charstring;
 ----
 
 Calculate digest H(A1) hash (detailed description in https://www.ietf.org/rfc/rfc2617.txt[RFC 2617]).
+
+* Encrypt data with a specified cipher method
++
+----
+external function f_Encrypt_data(
+  in octetstring p_key,
+  in octetstring p_iv := ''O,
+  in charstring p_cipher,
+  in octetstring p_cleartext,
+  out octetstring p_ciphertext,
+  in Cipher_padding p_padding := Cipher_padding_PKCS
+) return Cipher_Result
+----
++
+The function uses the OpenSSL library, so the possible value of the `p_cipher` is determined by the version of the OpenSSL library. Please check the documentation of the OpenSSL and the `openssl/evp.h` & `openssl/obj_mac.h` files.
+
+* Decrypt data with a specified cipher method
++
+----
+external function f_Decrypt_data(
+  in octetstring p_key,
+  in octetstring p_iv := ''O,
+  in charstring p_cipher,
+  out octetstring p_cleartext,
+  in octetstring p_ciphertext,
+  in Cipher_padding p_padding := Cipher_padding_PKCS
+) return Cipher_Result
+----
++
+The function uses the OpenSSL library, so the possible value of the `p_cipher` is determined by the version of the OpenSSL library. Please check the documentation of the OpenSSL and the `openssl/evp.h` & `openssl/obj_mac.h` files.
+
+* Calculate the hash of the data with specified digest
++
+----
+external function f_Digest_data(
+  in charstring p_digest,
+  in octetstring p_data,
+  out octetstring p_hash
+) return Digest_Result
+----
++
+The function uses the OpenSSL library, so the possible value of the `p_digest` is determined by the version of the OpenSSL library. Please check the documentation of the OpenSSL and the `openssl/evp.h` & `openssl/obj_mac.h` files.
+
+* Caculate or verify the signiture of the specified data
++
+----
+f_DigestSign_data(
+  in charstring p_digest,
+  in octetstring p_key,
+  in charstring p_passwd,
+  in octetstring p_data,
+  out octetstring p_hash
+) return DigestSign_Result
+
+f_DigestSign_Verify_data(
+  in charstring p_digest,
+  in octetstring p_key,
+  in charstring p_passwd,
+  in octetstring p_data,
+  in octetstring p_sign
+) return DigestSign_Result
+----
++
+The functions are wrapper around the EVP_DigestVerify & EVP_DigestSign functionality.
+The functions use the OpenSSL library, so the possible value of the `p_digest` is determined by the version of the OpenSSL library. Please check the documentation of the OpenSSL and the `openssl/evp.h` & `openssl/obj_mac.h` files.
+
+* Function to derive Key and IV 
++
+----
+external function f_generate_key_iv(
+  in charstring p_digest,
+  in charstring p_cipher,
+  in octetstring p_passwd,
+  in octetstring p_salt,
+  in integer p_count,
+  out octetstring p_key,
+  out octetstring p_iv
+) return TCCOpenSecurity_Result
+----
++
+Derives a key and IV from various parameters. See the EVP_BytesToKey function of the OpenSSL.
+
+* Generic HMAC function
++
+----
+external function f_HMAC_data(
+  in charstring p_digest,
+  in octetstring p_key,
+  in octetstring p_data,
+  out octetstring p_hmac
+) return TCCOpenSecurity_Result
+----
++
+Computes the message authentication code using the given hash function. 
+The functions use the OpenSSL library, so the possible value of the `p_digest` is determined by the version of the OpenSSL library. Please check the documentation of the OpenSSL and the `openssl/evp.h` & `openssl/obj_mac.h` files.
 
 * `external function f_calculateMD5(in charstring pszHashInput) return charstring;`
 +
@@ -1604,15 +1777,15 @@ Computes the shared secret for the Diffie-Hellman exchange given the private key
 +
 Computes the shared secret from the originating side's private key and the public key of the responding side as described in DH group 2 and 14. Keys must be either 96, 128 or 256 bytes long.
 
-== Error Messages
+=== Error Messages
 
 None.
 
-== Warning Messages
+=== Warning Messages
 
 None.
 
-== Examples
+=== Examples
 
 The following example shows a basic usage of digest response calculation. The provided data values are acquired from the server resp`__`onse and client data.
 
@@ -1754,9 +1927,9 @@ var octetstring vl_priv_key := '9FCF731129397EF7DC51562D71DD819DE35891B739BD6BE7
 var octetstring vl_shared_secret := ef_DH_shared_secret(vl_key_other, vl_priv_key);
 ----
 
-= Message Handling Functions
+== Message Handling Functions
 
-== Overview
+=== Overview
 
 Message handling functions enable you to get the length of the received message.
 
@@ -1765,7 +1938,7 @@ Message Handling Functions are implemented in the following files:
 * __TCCMessageHandling_Functions.ttcn__
 * _TCCMessageHandling.cc_
 
-== Function Definitions
+=== Function Definitions
 
 The following Message Handling Functions shall be defined:
 
@@ -1787,15 +1960,15 @@ Return the length of the given BER encoded message. For definite length format t
 +
 NOTE: The input can be a message segment or multiple concatenated messages as long as the beginning of the input is the beginning of a TLV encoded BER message. This function is useful for TCP transport in the IPL4 test port.
 
-== Error Messages
+=== Error Messages
 
 None.
 
-== Warning Messages
+=== Warning Messages
 
 None.
 
-== Examples
+=== Examples
 
 [source]
 ----
@@ -1809,9 +1982,9 @@ control
 }
 ----
 
-= Permutated Parameters Handling
+== Permutated Parameters Handling
 
-== Overview
+=== Overview
 
 Permutated parameters functions enable you to determine permutations of multiple parameters. Parameters are assigned with their types and values in assignment lists. Permutation of the parameters are calculated with the available functions.
 
@@ -1836,7 +2009,7 @@ Permutated parameters handling Functions are implemented in the following files:
 * __TCCPermutatedParameters_Definitions.ttcn__
 * __TCCPermutatedParameters_Functions.ttcn__
 
-== Function Definitions
+=== Function Definitions
 
 [source]
 ----
@@ -1899,23 +2072,23 @@ public function f_PP_getParamValueFromSet(
 
 Function returns the single parameter value if its parameter types matches one of the given types.
 
-== Error Messages
+=== Error Messages
 
 None.
 
-== Warning Messages
+=== Warning Messages
 
 None.
 
-== Examples
+=== Examples
 
 None.
 
 Please contact 'ttcn3 (ETH)' mailing list to get advice on usage.
 
-= Titan Metadata Functions
+== Titan Metadata Functions
 
-== Overview
+=== Overview
 
 Titan Metadata functions enable you to get meta information provided by the Titan compiler directly from TTCN-3.
 
@@ -1926,7 +2099,7 @@ Titan Metadata Functions are implemented in the following files:
 * __TCCTitanMetadata_Functions.ttcn__
 * _TCCTitanMetadata.cc_
 
-== Function Definitions
+=== Function Definitions
 
 The following Metadata Functions are defined. For the exact API check the generated NaturalDocs documentation.
 
@@ -1934,15 +2107,15 @@ The following Metadata Functions are defined. For the exact API check the genera
 
 Return the compilation time of module
 
-== Error Messages
+=== Error Messages
 
 None.
 
-== Warning Messages
+=== Warning Messages
 
 None.
 
-== Examples
+=== Examples
 
 The following example shows the compilation time of module, for example Nov 17 2007 17:14:09.
 
@@ -1980,9 +2153,9 @@ testcase tc_TitanMetadata_execAll() runs on Metadata_CT
 }
 ----
 
-= Text Template Substitution Functions
+== Text Template Substitution Functions
 
-== Overview
+=== Overview
 
 This module enables to do string substitutions on a text template accord to a given dictionary. The dictionary tells what to substitute to a new string, but not only strings can be in the dictionary, but simple patterns too, and the may contain function references to calculate the new string.
 
@@ -1992,7 +2165,7 @@ Message Handling Functions are implemented in the following files:
 
 Patterns can be used as dictionary keys. Every character will match itself, but the "\w" meta string will match one or more characters in the text template. The substrings matched with "\w" will be passed to the function referenced in the dictionary as a list of charstrings.
 
-== Function Definitions
+=== Function Definitions
 
 The following Template Functions shall be defined:
 
@@ -2004,17 +2177,17 @@ This function applies the dictionary to its parameter `pl_string`, and gives the
 +
 The function reads in the given files content, applies the dictionary to it, and gives the result back.
 
-== Error Messages
+=== Error Messages
 
 `*Error while closing file!*`
 
 May happen when `f_Template_subsfiletemplate` is used, and the file can not be closed. ``´´ returned in this case.
 
-== Warning Messages
+=== Warning Messages
 
 None.
 
-== Examples
+=== Examples
 
 [source]
 ----
@@ -2028,14 +2201,14 @@ function nlist(in charstringList pl_params) return charstring{
 log(f_Template_subsfiletemplate({{"$(caiSs)","CAISS",omit},{"$(caiSq)","CAISQ", omit},{"$(<\\w..\\w>[\\w])","", refers(nlist)}},"cai3g_delete_PoCGroupsXDMSUser.body"));
 ----
 
-= IPsec Functions
+== IPsec Functions
 
-== Overview
+=== Overview
 
 The IPsec Functions provides a TTCN interface to handle the IPsec parameters stored in two databases: the Security Associations Database (SAD) and the Security Policy Database (SPD). Both the PF_KEY API and the Netlink XFRM API is supported with TTCN interfaces via different functions.
 
 [[pf-key-api]]
-=== PF_KEY API
+==== PF_KEY API
 
 IPsec Handling Functions are implemented in the following files:
 
@@ -2047,7 +2220,7 @@ These functions can only be used if the kernel supports IPsec. Moreover, SPD han
 
 For using any of these functions root privileges are needed.
 
-=== Netlink XFRM API
+==== Netlink XFRM API
 
 IPsec Handling Functions are implemented in the following files:
 
@@ -2061,15 +2234,15 @@ As only very old kernel versions do not support the XFRM interface, no extra bui
 
 For using any of these functions root privileges are needed.
 
-== Function Definitions
+=== Function Definitions
 
-=== Security Parameter Index Query Function
+==== Security Parameter Index Query Function
 
 The Security Parameter Index (SPI) is an identification tag added to the header while using IPsec for tunneling the IP traffic. This tag helps the kernel discern between two traffic streams where different encryption rules and algorithms may be in use.
 
 The kernel keeps track of the SPIs in use, and it does not allow creating multiple Security Associations with the same SPI. For this reason, it is recommended to query a unique SPI from the kernel before creating a new Security Association.
 
-==== PF_KEY API
+===== PF_KEY API
 
 [source]
 ----
@@ -2083,7 +2256,7 @@ external function f_IPsec_SPI_get (
 
 Queries a unique SPI from the kernel and returns it in the 'spi' out parameter.
 
-==== Netlink XFRM API
+===== Netlink XFRM API
 
 [source]
 ----
@@ -2095,11 +2268,11 @@ external function f_XFRM_allocate_SPI(
 
 Queries a unique SPI value from the kernel that is from the default SPI range or from a defined range in the `pl_AllocSPI_info` parameter. The execution result returned in by the function and the reserved SPI will be in the `pl_spi` parameter.
 
-=== Security Association Database Handling Functions
+==== Security Association Database Handling Functions
 
 Security Associations are identified by the source address (srcAddress), security protocol (protocol) and the Security Parameter Index (SPI).
 
-==== PF_KEY API
+===== PF_KEY API
 
 Security Associations may contain various extensions (extensionList) beside the algorithms (alg). The algorithm identifies the security or integrity protocol and the keys. The extensions include the soft and hard lifetime and an id to link the SAs to SPs.
 
@@ -2129,7 +2302,7 @@ Delete an SA from the SAD.
 
 Delete all SAs from the SAD.
 
-==== Netlink XFRM API
+===== Netlink XFRM API
 
 The main attributes of the SAs are the communication addresses, the used protocol, the used IPsec protocol, the mode of usage (transport and tunneling mode), the SPI value, algorithms and keys. In addition, the NAT (Network Address Traversal), selectors (identification purpose) and the lifetime is also configurable.
 
@@ -2161,11 +2334,11 @@ external function f_XFRM_flush_sa()
 return XFRM_Result;
 ----
 
-=== Security Policy Database Handling Functions
+==== Security Policy Database Handling Functions
 
 Security Policies are identified by the source and destination addresses ranges and port values, the transport protocol (UDP or TCP) and the direction of the data traffic to which the policy is applied.
 
-==== PF_KEY API
+===== PF_KEY API
 
 The rule parameter specifies how IP packets should be handled.
 
@@ -2206,7 +2379,7 @@ Delete an SP from the SPD.
 
 Delete all SPs from the SPD.
 
-==== Netlink XFRM API
+===== Netlink XFRM API
 
 The main parameter of the SPs are the communication addresses, the transport protocol, the direction and the template list that identifies the SP. The template contains the SPI, the IPsec protocol and additional information.
 
@@ -2236,11 +2409,11 @@ external function f_XFRM_flush_policy()
 return XFRM_Result;
 ----
 
-== Error Messages
+=== Error Messages
 
 None.
 
-== Warning Messages
+=== Warning Messages
 
 `*TCCIPsec: f__IPsec__SADB__add: IPsec support was not specified during compilation*`
 
@@ -2250,7 +2423,32 @@ None.
 
 `*The -DUSE_KAME_IPSEC compiler switch should be added to the CPPFLAGS variable in the Makefile in order to use SPD handling if the kernel contains the KAME IPsec implementation.*`
 
-== Examples
+=== IPSec Statistics
+The following statistics are provided for Netlink XFRM API:
+
+* Number of add policy call
+* Number of delete policy call
+* Number of add SA call
+* Number of delete SA call
+* Minimum execution time (optional)
+* Maximum execution time (optional)
+* Average execution time (optional)
+
+The collection of optional execution time statistics are controlled by the `tsp_XFRM_time_statistic_enabled` module parameter. By default the execution time statistics are not collected.
+
+If the execution time of the Netlink call exceed the value set by the `tsp_XFRM_time_warning_treshold_ms` module parameter a warning is logged. The long execution time usually caused by the overload of the IPSec handler part of the kernel.
+
+The statistic counter values can be queried by the function
+
+[source]
+----
+f_XFRM_get_statistic(in boolean pl_reset_stats:=false) return XFRM_statistic;
+----
+
+If the parameter pl_reset_stats is true, the statistics are reset. 
+
+
+=== Examples
 
 [source]
 ----
@@ -2298,9 +2496,9 @@ testcase SP_delete () runs on test_CT
 }
 ----
 
-= XPath Support Functions
+== XPath Support Functions
 
-== Overview
+=== Overview
 
 XPath Support Functions enable you to get any information stored in an XML document by making XPath queries. XPath is a language for finding information in an XML document. XPath is used to navigate through elements and attributes in an XML document. You can find reference and any further information about XPath 1.0 (base of the implementation) on the page:
 
@@ -2311,7 +2509,7 @@ XPath Support Functions are implemented in the following files:
 * __TCCXPathSupport_Functions.ttcn__
 * _TCCXPathSupport.cc_
 
-== Function Definitions
+=== Function Definitions
 
 The following function was defined to enable you to use XPath queries in order to access the required data stored in the XML document.
 
@@ -2357,7 +2555,7 @@ The function returns the description of the error in that string
 +
 Return Value: boolean – `_true_` if the document is valid, `_false_` otherwise.
 
-== Building the TinyXPath External Library
+=== Building the TinyXPath External Library
 
 This TTCN-3 function is an application of the open-source TinyXPath external library.
 
@@ -2398,9 +2596,9 @@ And then you type only: _make._
 
 You can find the library file (_libtinyxpath.a_) in the TinyXPath/lib subfolder.
 
-== Preparing your TTCN-3 Environment for Using TinyXPath
+=== Preparing your TTCN-3 Environment for Using TinyXPath
 
-=== Modification of the TTCN-3 Files in your Project
+==== Modification of the TTCN-3 Files in your Project
 
 You need to add two files:
 
@@ -2414,7 +2612,7 @@ In order to use the implemented function in your module you have to import defin
 
 `import from TCCXPathSupport_Functions all;`
 
-=== Modification of the Makefile of Your Project
+==== Modification of the Makefile of Your Project
 
 Finally, your generated _Makefile_ needs some changes to be able to find the external library.
 
@@ -2449,15 +2647,15 @@ You have to insert a line between them according to this:
 
 Now with this modified _Makefile_ your project will be able to find and use the TinyXPath library.
 
-== Error Messages
+=== Error Messages
 
 None.
 
-== Warning Messages
+=== Warning Messages
 
 None.
 
-== Examples
+=== Examples
 
 [source]
 ----
@@ -2482,9 +2680,9 @@ module TCCXPathSupport_Example {
 }
 ----
 
-= System Functions
+== System Functions
 
-== Overview
+=== Overview
 
 The system functions implement various operating system and process related functions
 
@@ -2493,27 +2691,27 @@ Conversion Functions are implemented in the following files:
 * __TCCSystem_Functions.ttcn__
 * _TCCSystem.cc_
 
-== Function definitions
+=== Function definitions
 
 * `external function f_SYS_getpid() return integer;`
 +
 Returns the pid of the process.
 
-== Error Messages
+=== Error Messages
 
 None.
 
-== Warning Messages
+=== Warning Messages
 
 None
 
-== Examples
+=== Examples
 
 None.
 
-= FileSystem Functions
+== FileSystem Functions
 
-== Overview
+=== Overview
 
 The FileSystem functions get information about the file system that contains the file named by the filename argument
 
@@ -2522,7 +2720,7 @@ FileSystem Functions are implemented in the following files:
 * __TCCFileSystem_Functions.ttcn__
 * _TCCFileSystem.cc_
 
-== Function Definitions
+=== Function Definitions
 
 * `external function f_FS_bsize(in charstring p_name) return integer`
 +
@@ -2540,15 +2738,15 @@ Returns the total number of free blocks in the file system or `_-1_` on error
 +
 Returns the free space rate in the file system or `_-1_` on error
 
-== Error Messages
+=== Error Messages
 
 None.
 
-== Warning Messages
+=== Warning Messages
 
 None.
 
-== Examples
+=== Examples
 
 [source]
 ----
@@ -2589,9 +2787,9 @@ testcase f_test_FS_dspacerate() runs on FileSystem_CT
 }
 ----
 
-= Regexp functions
+== Regexp functions
 
-== Overview
+=== Overview
 
 The system functions implement non-TTCN-3 regular expression support functions
 
@@ -2600,7 +2798,7 @@ Regexp Functions are implemented in the following files:
 * __TCCRegexp_Functions.ttcn__
 * _TCCRegexp.cc_
 
-== Function Definitions
+=== Function Definitions
 
 * `external function f_pcre_regexp(in charstring instr, in charstring expression, in integer groupno) return charstring;`
 +
@@ -2616,17 +2814,17 @@ This function returns the full list of the substring of the input character stri
 
 The functions are based on the PCRE library. See: http://www.pcre.org/
 
-== Error Messages
+=== Error Messages
 
 `*Compilation of the pcre regexp failed at position x. Reason: yyyyy*`
 
 The supplied expression is not a valid PCRE expression.
 
-== Warning Messages
+=== Warning Messages
 
 None.
 
-== Examples
+=== Examples
 
 * `f_pcre_regexp( "abc", "(a|(z))(bc)" ,0)`
 +
@@ -2652,11 +2850,11 @@ returns {“abc” , ”a” , ”” , ”bc”}
 +
 returns { { "a1", "a", "1" }, { "a2", "a", "2" } }
 
-= Terminology
+== Terminology
 
 No specific terminology used.
 
-== Abbreviations
+=== Abbreviations
 
 ES:: ETSI Standard
 
@@ -2666,7 +2864,7 @@ RFC:: Request for Comments
 
 TTCN-3:: Testing and Test Control Notation version 3
 
-= References
+== References
 
 [[_1]]
 [1] ETSI ES 201 873-1 v3.1.1 (06/2005) +

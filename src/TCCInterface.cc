@@ -1,16 +1,15 @@
-/******************************************************************************
-* Copyright (c) 2000-2019 Ericsson Telecom AB
-* All rights reserved. This program and the accompanying materials
-* are made available under the terms of the Eclipse Public License v2.0
-* which accompanies this distribution, and is available at
-* https://www.eclipse.org/org/documents/epl-2.0/EPL-2.0.html
-******************************************************************************/
+///////////////////////////////////////////////////////////////////////////////
+//
+// Copyright (c) 2000-2020 Ericsson Telecom AB
+//
+// All rights reserved. This program and the accompanying materials
+// are made available under the terms of the Eclipse Public License v2.0
+// which accompanies this distribution, and is available at
+// https://www.eclipse.org/org/documents/epl-2.0/EPL-2.0.html
 ///////////////////////////////////////////////////////////////////////////////
 //
 //  File:               TCCInterface.cc
 //  Description:        TCC Useful Functions: Interface Functions
-//  Rev:                R36B
-//  Prodnr:             CNL 113 472
 //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -28,7 +27,8 @@
 #if defined LINUX
  #include <ifaddrs.h>
  #include <linux/types.h>
- #include "TCCInterface_ip.h"
+ #include <linux/netlink.h>
+ #include <linux/rtnetlink.h>
 #endif
 
 #if defined LKSCTP_1_0_7 || defined LKSCTP_1_0_9 || USE_SCTP
@@ -880,6 +880,172 @@ CHARSTRING f__getIpAddr(const CHARSTRING& hostname, const TCCInterface__IPAddres
 #endif  
   
 }
+#define NLMSG_TAIL(nmsg) \
+	((struct rtattr *) (   ((char *)(nmsg)) + (NLMSG_ALIGN((nmsg)->nlmsg_len))  ))
+
+
+///// Helper function for the f_setIP_ip
+
+typedef struct
+{
+	__u8 family;
+	__u8 bytelen;
+	__s16 bitlen;
+	__u32 flags;
+	__u32 data[4];
+} nt_pr_helper;
+
+#define PREFIXLEN_SPECIFIED 1
+
+int nladdattr(struct nlmsghdr *n, int maxlen, int type, const void *data,
+	      int alen)
+{
+	int len = RTA_LENGTH(alen);
+	struct rtattr *rta;
+
+	if (NLMSG_ALIGN(n->nlmsg_len) + RTA_ALIGN(len) > (unsigned)maxlen) {
+	  return -1; 
+	}
+	rta = NLMSG_TAIL(n);
+	rta->rta_type = type;
+	rta->rta_len = len;
+	memcpy(RTA_DATA(rta), data, alen);
+	n->nlmsg_len = NLMSG_ALIGN(n->nlmsg_len) + RTA_ALIGN(len);
+	return 0;
+}
+
+
+int get_prefix(nt_pr_helper *dst, const char *ip_str, int prefix_spec)
+{
+	if (strchr(ip_str, ':')) {
+		dst->family = AF_INET6;
+		if (inet_pton(AF_INET6, ip_str, dst->data) <= 0)
+			return -1;
+		dst->bytelen = 16;
+		dst->bitlen = prefix_spec;
+	} else {
+    dst->family = AF_INET;
+    if (inet_pton(AF_INET, ip_str, dst->data) <= 0)
+      return -1;
+    dst->bytelen = 4;
+    dst->bitlen = prefix_spec;
+  }
+  dst->flags |= PREFIXLEN_SPECIFIED;
+	return 0;
+}
+
+
+int open_nlsocket()
+{
+
+	int fd = socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
+	if (fd < 0) {
+	  TTCN_warning("Cannot open netlink socket");
+	  return -1;
+	}
+
+
+  struct sockaddr_nl nl_address;
+	memset(&nl_address, 0, sizeof(nl_address));
+	nl_address.nl_family = AF_NETLINK;
+
+	if (bind(fd, (struct sockaddr*)&nl_address, sizeof(nl_address)) < 0) {
+	  TTCN_warning("Cannot bind netlink socket");
+	  return -1;
+	}
+	return fd;
+}
+
+
+int nl_send(void* msg, int len) {
+  int fd=open_nlsocket();
+  if(fd<0){
+    TTCN_warning("RTNL: Can not open RTLN link");
+    return -1;
+  }
+  struct msghdr smsg;
+  struct iovec siov;
+  struct sockaddr_nl dest;
+  char recvbuf[4096];
+  struct msghdr rmsg;
+  struct iovec riov;
+  struct sockaddr_nl from;
+  struct nlmsghdr* hdr;
+  int rlen;
+
+
+  memset(&dest,0,sizeof(dest));
+  dest.nl_family = AF_NETLINK;
+  smsg.msg_name = (void*)&dest;
+  smsg.msg_namelen = sizeof(dest);
+  smsg.msg_iov = &siov;
+  smsg.msg_iovlen = 1;
+  smsg.msg_control = NULL;
+  smsg.msg_controllen = 0;
+  smsg.msg_flags = 0;
+  
+  siov.iov_base = msg;
+  siov.iov_len = len;
+
+  //Sending message to the kernel
+  if(sendmsg(fd,&smsg,0) == -1){
+    TTCN_warning("Cannot talk to rtnetlink");
+    close(fd);
+    return -1;
+  }
+
+  TTCN_Logger::log( TTCN_DEBUG,"###### Netlink socket sent.");
+  //Initializing reciever
+  riov.iov_base = recvbuf;
+  riov.iov_len = 4096;
+  rmsg.msg_name = &from;
+  rmsg.msg_namelen = sizeof(from);
+  rmsg.msg_iov = &riov;
+  rmsg.msg_iovlen = 1;
+  rmsg.msg_control = NULL;
+  rmsg.msg_controllen = 0;
+  rmsg.msg_flags = 0;
+
+  TTCN_Logger::log( TTCN_DEBUG,"###### Receiving results from the kernel:");
+  rlen = recvmsg(fd,&rmsg,0);
+  if(rlen == -1) {
+    TTCN_warning("rtln receives error");
+    close(fd);
+    return -1; 
+  };
+
+
+  //Processing response
+  //Message Format:
+  // <--- nlmsg_total_size(payload)  --->
+  // <-- nlmsg_msg_size(payload) ->
+  //+----------+- - -+-------------+- - -+-------- - -
+  //| nlmsghdr | Pad |   Payload   | Pad | nlmsghdr
+  //+----------+- - -+-------------+- - -+-------- - -
+  //nlmsg_data(nlh)---^                   ^
+  //nlmsg_next(nlh)-----------------------+
+  for(hdr = (struct nlmsghdr*)recvbuf; NLMSG_OK(hdr,(unsigned)rlen); hdr = NLMSG_NEXT(hdr,rlen)){
+    if(hdr -> nlmsg_type == NLMSG_ERROR){
+      struct nlmsgerr* answer = (struct nlmsgerr*)NLMSG_DATA(hdr);
+      if(answer -> error == 0){
+        TTCN_Logger::log( TTCN_DEBUG,"Operation was successful!");
+      } else {
+        close(fd);
+        return -1;
+      };
+    } else {
+      close(fd);
+      return -1;
+    };
+  };
+  close(fd);
+  return 0; 
+}
+
+
+
+
+
 
 ///////////////////////////////////////////////////////////////////////////////
 //  Function: f_setIP_ip
@@ -906,26 +1072,15 @@ CHARSTRING f__getIpAddr(const CHARSTRING& hostname, const TCCInterface__IPAddres
 BOOLEAN f__setIP__ip(const CHARSTRING& interface, const CHARSTRING& ipaddress, const INTEGER& prefix = 32, const INTEGER& v_set = 1){
 
 #ifdef LINUX
-  
+
   if ((int)prefix > 32 or (int)prefix < 0) {
     TTCN_warning("Wrong prefix number");
     return false;
   }
 
-  char buf[3];
-  sprintf(buf, "%d", (int)prefix);
-  char *ip = (char *)malloc((ipaddress.lengthof() + strlen(buf) + 1 + 1)*sizeof(char));
-  strcpy(ip, (char*)(const char*)ipaddress);
-  strcat(ip,"/");
-  strcat(ip, buf);
-
-  if (rtnl_open(&rth, 0) < 0 ){
-    TTCN_warning("RTNL: Can not open RTLN link");
-    return false;
-  }
-
+ 
   int cmd = (v_set == 1 ? RTM_NEWADDR : RTM_DELADDR);
-  int flags = NLM_F_CREATE|NLM_F_EXCL;
+  int flags = NLM_F_CREATE|NLM_F_EXCL| NLM_F_ACK;
 
   struct {
     struct nlmsghdr 	n;
@@ -933,62 +1088,47 @@ BOOLEAN f__setIP__ip(const CHARSTRING& interface, const CHARSTRING& ipaddress, c
     char   			buf[256];
   } req;
 
-  char  *d = NULL;
-  char  *lcl_arg = NULL;
-  inet_prefix lcl;
-  //int local_len = 0;
+  nt_pr_helper lcl;
   
   memset(&req, 0, sizeof(req));
   
   req.n.nlmsg_len = NLMSG_LENGTH(sizeof(struct ifaddrmsg));
   req.n.nlmsg_flags = NLM_F_REQUEST | flags;
   req.n.nlmsg_type = cmd;
-  req.ifa.ifa_family = preferred_family;
+  req.ifa.ifa_family = AF_UNSPEC;
   
-  d = (char*)(const char*)interface;
-
   // IP_ADDRESS handling
-  lcl_arg = ip;    
-  if (get_prefix(&lcl, lcl_arg, req.ifa.ifa_family) == -1) return 0;
-  if (req.ifa.ifa_family == AF_UNSPEC)
-    req.ifa.ifa_family = lcl.family;
-  addattr_l(&req.n, sizeof(req), IFA_LOCAL, &lcl.data, lcl.bytelen);
-  //local_len = lcl.bytelen;
+  if (get_prefix(&lcl, (const char*)ipaddress, (int)prefix) == -1) {
+    TTCN_warning("RTNL: wrong address");
+    return false;
+  }
+
+  req.ifa.ifa_family = lcl.family;
+  nladdattr(&req.n, sizeof(req), IFA_LOCAL, &lcl.data, lcl.bytelen);
 
   // further processing
   if (cmd == RTM_DELADDR && lcl.family == AF_INET && !(lcl.flags & PREFIXLEN_SPECIFIED)) {
     TTCN_warning("You should never see this!");
   } else {
-    //peer = lcl;
-    addattr_l(&req.n, sizeof(req), IFA_ADDRESS, &lcl.data, lcl.bytelen);
+    nladdattr(&req.n, sizeof(req), IFA_ADDRESS, &lcl.data, lcl.bytelen);
   }
 
 
-  if (req.ifa.ifa_prefixlen == 0)
-    req.ifa.ifa_prefixlen = lcl.bitlen;
-  if(cmd != RTM_DELADDR)
-    req.ifa.ifa_scope = default_scope(&lcl);
+  req.ifa.ifa_prefixlen = lcl.bitlen;
   
-  //  ll_init_map(&rth);
   
-  if ((req.ifa.ifa_index = ll_name_to_index(d)) == 0) {
+  if ((req.ifa.ifa_index = if_nametoindex((const char*)interface)) == 0) {
     TTCN_warning("RTNL: Cannot find device");
-    goto error;
+    return false;
   }
   
-  if (rtnl_talk(&rth, &req.n, 0, 0, NULL, NULL, NULL) < 0) {
+  if (nl_send( &req.n, req.n.nlmsg_len) < 0) {
     TTCN_warning("RTNL: talk error!");
-    goto error;
+    return false;
   }
   
-  free(ip);
-  rtnl_close(&rth);
   return true;
   
-  error:
-    free(ip);
-  return false;
-
 #else
 
   TTCN_warning("f_setIP_ip is only supported on Linux!");

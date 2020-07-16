@@ -20,7 +20,6 @@
   <Files>
     <FileResource projectRelativePath="TCCInterface.cc" relativeURI="src/TCCInterface.cc"/>
     <FileResource projectRelativePath="TCCInterface_Functions.ttcn" relativeURI="src/TCCInterface_Functions.ttcn"/>
-    <FileResource projectRelativePath="TCCInterface_ip.h" relativeURI="src/TCCInterface_ip.h"/>
   </Files>
   <ActiveConfiguration>Default</ActiveConfiguration>
   <Configurations>

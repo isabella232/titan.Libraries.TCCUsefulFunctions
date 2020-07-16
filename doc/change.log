@@ -1,0 +1,193 @@
+= TCC Useful Functions for TTCN-3 Toolset with TITAN, Change log
+:author: Gábor Szalai
+:toc: left
+
+= Changes
+
+== R37A
+
+Generic encription and hash functions have been added:
+
+* Encrypt data with a specified cipher method
++
+----
+external function f_Encrypt_data(
+  in octetstring p_key,
+  in octetstring p_iv := ''O,
+  in charstring p_cipher,
+  in octetstring p_cleartext,
+  out octetstring p_ciphertext
+) return Cipher_Result
+----
++
+The function uses the OpenSSL library, so the possible value of the `p_cipher` is determined by the version of the OpenSSL library. Please check the documentation of the OpenSSL and the `openssl/evp.h` & `openssl/obj_mac.h` files.
+
+* Decrypt data with a specified cipher method
++
+----
+external function f_Decrypt_data(
+  in octetstring p_key,
+  in octetstring p_iv := ''O,
+  in charstring p_cipher,
+  out octetstring p_cleartext,
+  in octetstring p_ciphertext
+) return Cipher_Result
+----
++
+The function uses the OpenSSL library, so the possible value of the `p_cipher` is determined by the version of the OpenSSL library. Please check the documentation of the OpenSSL and the `openssl/evp.h` & `openssl/obj_mac.h` files.
+
+* Calculate the hash of the data with specified digest
++
+----
+external function f_Digest_data(
+  in charstring p_digest,
+  in octetstring p_data,
+  out octetstring p_hash
+) return Digest_Result
+----
++
+The function uses the OpenSSL library, so the possible value of the `p_hash` is determined by the version of the OpenSSL library. Please check the documentation of the OpenSSL and the `openssl/evp.h` & `openssl/obj_mac.h` files.
+
+
+== R37B
+
+OpenSSL 0.9.8 compatibility update
+
+
+== R38A
+
+Time conversion function has been added:
+
+* Provides the current calendar time of the system in microseconds
++
+----
+external function f_time_micros() return integer
+----
+
+== R38B
+
+The padding method can be set for the generic encryption functions: f_Encrypt_data, f_Decrypt_data
+Currently supported paddings:
+
+* PKCS RFC 5652, used by default
+* ISO padding, specified in ISO/IEC 7816/4
+* no padding
+
+== R38C
+
+New date time parser function is added: f_parseTimeFormatted
+
+== R38D
+
+Segmentation fault correction
+
+== R38E
+
+OpenSSL init problem solved
+
+== R38F
+
+Message length calculator function for Diameter has been modified to never return 0.
+
+== R38G
+
+New function is added: f_getTimeFormattedUTC
+
+== R38H
+
+Negative standalone value is supported by f_PP_convertToRangeList if no value range is being converting (-2 vs 2-5)
+
+== R38J
+
+Added UUID related functions
+
+== R39A
+
+Functions to read csv files were added.
+
+== R39B
+
+The XFRM message length calculation was corrected.
+
+== R39C
+
+Base32 encoding support was added.
+
+== R39D
+
+String split function was added.
+Encoder/decoder function for names as specified in RFC 1035
+
+== R39E
+
+IPSec statistics added.
+
+== R39F
+
+Added functions:
+
+* `enc_Base64(in octetstring p_msg, in BaseEncoding_Alphabet p_alphabet:=Base64_Default) return charstring;`
+* `dec_Base64(in charstring p_b64, in BaseEncoding_Alphabet p_alphabet:=Base64_Default) return octetstring`
+* `f_DigestSign_data(
+  in charstring p_digest,
+  in octetstring p_key,
+  in charstring p_passwd,
+  in octetstring p_data,
+  out octetstring p_hash
+) return DigestSign_Result`
+* `f_DigestSign_Verify_data(
+  in charstring p_digest,
+  in octetstring p_key,
+  in charstring p_passwd,
+  in octetstring p_data,
+  in octetstring p_sign
+) return DigestSign_Result`
+
+== R39G
+
+Base64 warning correction.
+
+== R39H
+
+Make it compilable with OpenSSL 0.9.8 
+
+== R40A
+
+Removed 3pty dependencies:
+
+* iproute2
+* RFC 2617 - HTTP Authentication: Basic and Digest Access Authentication
+
+== R40B
+
+Added function for percent encoding:
+
+* `f_enc_percent(in charstring pl_data, in charstring pl_space_encoding := "%20") return charstring`
+* `f_dec_percent(in charstring pl_pct_data, out charstring pl_data ) return integer`
+
+== R40C
+
+Added function for encription key and IV generation:
+----
+external function f_generate_key_iv(
+  in charstring p_digest,
+  in charstring p_cipher,
+  in octetstring p_passwd,
+  in octetstring p_salt,
+  in integer p_count,
+  out octetstring p_key,
+  out octetstring p_iv
+) return TCCOpenSecurity_Result
+----
+
+Added generic HMAC function:
+----
+external function f_HMAC_data(
+  in charstring p_digest,
+  in octetstring p_key,
+  in octetstring p_data,
+  out octetstring p_hmac
+) return TCCOpenSecurity_Result
+----
+
+Make it compilable with OpenSSL 1.0.1 

@@ -1,16 +1,15 @@
-/******************************************************************************
-* Copyright (c) 2000-2019 Ericsson Telecom AB
-* All rights reserved. This program and the accompanying materials
-* are made available under the terms of the Eclipse Public License v2.0
-* which accompanies this distribution, and is available at
-* https://www.eclipse.org/org/documents/epl-2.0/EPL-2.0.html
-******************************************************************************/
+///////////////////////////////////////////////////////////////////////////////
+//
+// Copyright (c) 2000-2020 Ericsson Telecom AB
+//
+// All rights reserved. This program and the accompanying materials
+// are made available under the terms of the Eclipse Public License v2.0
+// which accompanies this distribution, and is available at
+// https://www.eclipse.org/org/documents/epl-2.0/EPL-2.0.html
 ///////////////////////////////////////////////////////////////////////////////
 //
 //  File:               TCCDateTime.cc
 //  Description:        TCC Useful Functions: DateTime Functions
-//  Rev:                R36B
-//  Prodnr:             CNL 113 472
 //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -87,6 +86,34 @@ namespace TCCDateTime__Functions
     gettimeofday(&ct,0);
     INTEGER i;
     i.set_long_long_val(ct.tv_sec*1000 + ct.tv_usec/1000);
+    return i;
+  }
+
+///////////////////////////////////////////////////////////////////////////////
+//  Function: f__time__micros
+//
+//  Purpose:
+//    Current calendar time of the system in microseconds
+//
+//  Parameters:
+//    -
+//
+//  Return Value:
+//    integer - time value
+//
+//  Errors:
+//    -
+//
+//  Detailed description:
+//    -
+//
+///////////////////////////////////////////////////////////////////////////////
+  INTEGER f__time__micros()
+  {
+    struct timeval ct;
+    gettimeofday(&ct,0);
+    INTEGER i;
+    i.set_long_long_val(ct.tv_sec*1000000 + ct.tv_usec);
     return i;
   }
 
@@ -393,6 +420,80 @@ OCTETSTRING f__getOctTpscts(const INTEGER& pl__sec, const INTEGER& pl__tz)
     strftime (ret_val, str_len, (const char *)pl__format, localtime(&in_time));
     return ret_val;
   }
+
+  ///////////////////////////////////////////////////////////////////////////////
+  //  Function: f__getTimeFormattedUTC
+  //
+  //  Purpose:
+  //    Return the current calendar UTC time in a formatted way
+  //
+  //  Parameters:
+  //    pl__sec - *in* *integer* - time value
+  //    pl__format - *in* *charstring* - format string
+  //
+  //  Return Value:
+  //    charstring - formatted UTC time in string format
+  //
+  //  Errors:
+  //    -
+  //
+  //  Detailed description:
+  //    Format specifiers: See f_getTimeFormatted
+  //
+  ///////////////////////////////////////////////////////////////////////////////
+  CHARSTRING f__getTimeFormattedUTC(const INTEGER& pl__sec, const CHARSTRING& pl__format)
+  {
+    time_t in_time = pl__sec.get_long_long_val();
+    size_t str_len = 255;
+    char ret_val[str_len];
+    strftime (ret_val, str_len, (const char *)pl__format, gmtime(&in_time));
+    return ret_val;
+  }
+///////////////////////////////////////////////////////////////////////////////
+//  Function: f_parseTimeFormatted
+//
+//  Purpose:
+//    Return the formatted time in seconds since EPOCH
+//
+//  Parameters:
+//    pl_time - *in* *charstring* - time value 
+//    pl_format - *in* *charstring* - format string
+//    pl_isUTC - *in* *boolean* - true if the date string represents UTC time, false if the string represents local time
+//
+//  Return Value:
+//    integer - seconds since epoch
+//
+//  Errors:
+//    -
+//
+//  Detailed description:
+//    Format specifiers: See f_getTimeFormatted
+//
+///////////////////////////////////////////////////////////////////////////////
+INTEGER f__parseTimeFormatted(const CHARSTRING& pl__time, const CHARSTRING& pl__format, const BOOLEAN& pl__isUTC){
+
+  struct tm tms;
+  time_t t;
+  if (strptime((const char*)pl__time, (const char*)pl__format, &tms) == NULL){
+    return -1;
+  }
+ 
+  if(pl__isUTC){
+    tms.tm_isdst = 0;
+  } else {
+    tms.tm_isdst = -1;      /* Not set by strptime(); tells mktime()
+                          to determine whether daylight saving time
+                          is in effect */
+  }
+  t = mktime(&tms);
+  if(pl__isUTC){
+    t-= timezone;
+  }
+  INTEGER i;
+  i.set_long_long_val(t);
+  return i;
+}
+
 
 ///////////////////////////////////////////////////////////////////////////////
 //  Function: f__time2sec

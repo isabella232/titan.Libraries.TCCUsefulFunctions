@@ -1,15 +1,14 @@
-/******************************************************************************
-* Copyright (c) 2000-2019 Ericsson Telecom AB
-* All rights reserved. This program and the accompanying materials
-* are made available under the terms of the Eclipse Public License v2.0
-* which accompanies this distribution, and is available at
-* https://www.eclipse.org/org/documents/epl-2.0/EPL-2.0.html
-******************************************************************************/
+///////////////////////////////////////////////////////////////////////////////
+//
+// Copyright (c) 2000-2020 Ericsson Telecom AB
+//
+// All rights reserved. This program and the accompanying materials
+// are made available under the terms of the Eclipse Public License v2.0
+// which accompanies this distribution, and is available at
+// https://www.eclipse.org/org/documents/epl-2.0/EPL-2.0.html
 ///////////////////////////////////////////////////////////////////////////////
 //
 //  File:     TCCMessageHandling.cc
-//  Rev:      R36B
-//  Prodnr:   CNL 113 472
 //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -124,7 +123,7 @@ INTEGER TCCMessageHandling__Functions::f__TCCMessageHandling__getMessageLength4D
   const unsigned char *msg_in_buffer_loc =  ((const unsigned char*) stream);
   
   int ret_value = (msg_in_buffer_loc[1] << 16) + (msg_in_buffer_loc[2] << 8) + (msg_in_buffer_loc[3]);
-  return ret_value;
+  return ret_value?ret_value:-2;  // Should not return 0. The -2 indicates length calculation error
 }
 
 INTEGER TCCMessageHandling__Functions::f__TCCMessageHandling__getMessageLength4Radius
@@ -136,7 +135,7 @@ INTEGER TCCMessageHandling__Functions::f__TCCMessageHandling__getMessageLength4R
   const unsigned char *msg_in_buffer_loc =  ((const unsigned char*) stream);
   
   int ret_value = (msg_in_buffer_loc[2] << 8) + (msg_in_buffer_loc[3]);
-  return ret_value;
+  return ret_value?ret_value:-2;  // Should not return 0. The -2 indicates length calculation error
 }
 
 INTEGER TCCMessageHandling__Functions::f__TCCMessageHandling__getMessageLength4BER

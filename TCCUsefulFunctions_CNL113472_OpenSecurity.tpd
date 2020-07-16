@@ -14,9 +14,13 @@
  -->
 <TITAN_Project_File_Information version="1.0">
   <ProjectName>TCCUsefulFunctions_CNL113472_OpenSecurity</ProjectName>
+  <ReferencedProjects>
+    <ReferencedProject name="TCCUsefulFunctions_CNL113472_Common" projectLocationURI="TCCUsefulFunctions_CNL113472_Common.tpd"/>
+  </ReferencedProjects>
   <Files>
     <FileResource projectRelativePath="TCCOpenSecurity.cc" relativeURI="src/TCCOpenSecurity.cc"/>
     <FileResource projectRelativePath="TCCOpenSecurity_Functions.ttcn" relativeURI="src/TCCOpenSecurity_Functions.ttcn"/>
+    <FileResource projectRelativePath="TCCUUID_Functions.ttcn" relativeURI="src/TCCUUID_Functions.ttcn"/>
   </Files>
   <ActiveConfiguration>Default</ActiveConfiguration>
   <Configurations>

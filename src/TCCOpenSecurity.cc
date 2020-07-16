@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// Copyright (c) 2000-2019 Ericsson Telecom AB
+// Copyright (c) 2000-2020 Ericsson Telecom AB
 //
 // All rights reserved. This program and the accompanying materials
 // are made available under the terms of the Eclipse Public License v2.0
@@ -10,8 +10,6 @@
 //
 //  File:               TCCOpenSecurity.cc
 //  Description:        TCC Useful Functions: Security Functions
-//  Rev:                R36B
-//  Prodnr:             CNL 113 472
 //
 ///////////////////////////////////////////////////////////////////////////////
 #include "TCCOpenSecurity_Functions.hh"
@@ -24,67 +22,81 @@
 #include <openssl/dh.h>
 #include <openssl/sha.h>
 #include <openssl/rand.h>
+#include <openssl/pem.h>
+#include <openssl/err.h>
 
 #if OPENSSL_VERSION_NUMBER >= 0x10100000L
 #include <openssl/modes.h>
 #endif
 
 namespace TCCOpenSecurity__Functions {
-void tohex(unsigned char * Bin,unsigned char *Hex)
-{
-    unsigned short i;
-    unsigned char j;
 
-    for (i = 0; i < MD5_DIGEST_LENGTH; i++) {
-        j = (Bin[i] >> 4) & 0xf;
-        if (j <= 9)
-            Hex[i*2] = (j + '0');
-         else
-            Hex[i*2] = (j + 'a' - 10);
-        j = Bin[i] & 0xf;
-        if (j <= 9)
-            Hex[i*2+1] = (j + '0');
-         else
-            Hex[i*2+1] = (j + 'a' - 10);
-    };
-    Hex[MD5_DIGEST_LENGTH*2] = '\0';
+static void init_ssl_lib(){
+#if OPENSSL_VERSION_NUMBER >= 0x10100000L
+  return; // OpenSSL 1.1.0 and later initializes itself
+#else
+
+  static int inited=0;
+  if(inited != 0){
+    return;
+  }
+  inited =1;
+  OpenSSL_add_all_algorithms();          // initialize library
+#endif
+
 }
 
-void CalculateHA1(
+int openssl_error_to_warning_cb(const char *str, size_t len, void *u){
+  int ll=len;
+  TTCN_warning("%.*s",ll,str);
+  return 0;
+}
+
+static void openssl_error_to_warning(const char *str){
+  TTCN_warning("%s",str);
+  ERR_print_errors_cb(openssl_error_to_warning_cb,NULL);
+  
+}
+
+static const char *uc2hex="0123456789abcdef";
+
+CHARSTRING md5_to_hex(unsigned char * Bin){
+ 
+  char Hex[MD5_DIGEST_LENGTH*2];
+  for (int i = 0; i < MD5_DIGEST_LENGTH; i++) {
+    Hex[i*2] = uc2hex[(Bin[i] >> 4) & 0xf];
+    Hex[i*2+1] = uc2hex[ Bin[i] & 0xf];
+  }
+  return CHARSTRING(MD5_DIGEST_LENGTH*2,Hex);
+}
+
+static const CHARSTRING dc_val=CHARSTRING(":");
+
+CHARSTRING Calc_HA1(
     const CHARSTRING& alg,
     const CHARSTRING& username,
     const CHARSTRING& realm,
     const CHARSTRING& password,
     const CHARSTRING& nonce,
-    const CHARSTRING& cnonce,
-    CHARSTRING& sessionkey
+    const CHARSTRING& cnonce
     )
 {
-  MD5_CTX Md5Ctx;
+  CHARSTRING ha1_input=username+dc_val+realm+dc_val+password;
   unsigned char ha1[MD5_DIGEST_LENGTH];
-  unsigned char hexha1[MD5_DIGEST_LENGTH*2+1];
 
-  MD5_Init(&Md5Ctx);
-  MD5_Update(&Md5Ctx, (const char*)username, username.lengthof());
-  MD5_Update(&Md5Ctx, ":", 1);
-  MD5_Update(&Md5Ctx, (const char*)realm, realm.lengthof());
-  MD5_Update(&Md5Ctx, ":", 1);
-  MD5_Update(&Md5Ctx, (const char*)password,password.lengthof() );
-  MD5_Final(ha1, &Md5Ctx);
+  MD5((const unsigned char*)(const char *)ha1_input,ha1_input.lengthof(),ha1);
   if (alg == "md5-sess" ) {
+    ha1_input=dc_val+nonce+dc_val+cnonce;
+    MD5_CTX Md5Ctx;
     MD5_Init(&Md5Ctx);
     MD5_Update(&Md5Ctx, ha1, MD5_DIGEST_LENGTH);
-    MD5_Update(&Md5Ctx, ":", 1);
-    MD5_Update(&Md5Ctx, nonce, nonce.lengthof());
-    MD5_Update(&Md5Ctx, ":", 1);
-    MD5_Update(&Md5Ctx, cnonce, cnonce.lengthof());
+    MD5_Update(&Md5Ctx, ha1_input, ha1_input.lengthof());
     MD5_Final(ha1, &Md5Ctx);
-  };
-  tohex(ha1,hexha1);
-  sessionkey=CHARSTRING(MD5_DIGEST_LENGTH*2,(const char*)hexha1);
+  }  
+  return md5_to_hex(ha1);
 }
 
-void CalculateDigestResponse(
+CHARSTRING Calculate_Digest_Response(
     const CHARSTRING& ha1,        /* H(A1) */
     const CHARSTRING& nonce,      /* nonce from server */
     const CHARSTRING& nonceCount, /* 8 hex digits */
@@ -92,49 +104,31 @@ void CalculateDigestResponse(
     const CHARSTRING& qop,        /* qop-value: "", "auth", "auth-int" */
     const CHARSTRING& method,     /* method from the request */
     const CHARSTRING& digestUri,  /* requested URL */
-    const CHARSTRING& hentity,    /* H(entity body) if qop="auth-int" */
-    CHARSTRING& response          /* request-digest or response-digest */
+    const CHARSTRING& hentity    /* H(entity body) if qop="auth-int" */
     )
 {
-  MD5_CTX Md5Ctx;
-  unsigned char ha2[MD5_DIGEST_LENGTH];
-  unsigned char hexha2[MD5_DIGEST_LENGTH*2+1];
-  unsigned char resp[MD5_DIGEST_LENGTH];
-  unsigned char hexresp[MD5_DIGEST_LENGTH*2+1];
-
-
-  // calculate H(A2)
-  MD5_Init(&Md5Ctx);
-  MD5_Update(&Md5Ctx, (const char*)method, method.lengthof() );
-  MD5_Update(&Md5Ctx, ":", 1);
-  MD5_Update(&Md5Ctx, (const char*)digestUri, digestUri.lengthof());
-  if (qop == "auth-int") {
-    MD5_Update(&Md5Ctx, ":", 1);
-    MD5_Update(&Md5Ctx, (const char*)hentity, hentity.lengthof());
-  };
-  MD5_Final(ha2, &Md5Ctx);
-
-  // calculate response
-  MD5_Init(&Md5Ctx);
-  MD5_Update(&Md5Ctx, (const char*)ha1, ha1.lengthof());
-  MD5_Update(&Md5Ctx, ":", 1);
-  MD5_Update(&Md5Ctx, (const char*)nonce, nonce.lengthof());
-  MD5_Update(&Md5Ctx, ":", 1);
-  if (qop.lengthof()>0) {
-    MD5_Update(&Md5Ctx, (const char*)nonceCount, nonceCount.lengthof());
-    MD5_Update(&Md5Ctx, ":", 1);
-    MD5_Update(&Md5Ctx, (const char*)cnonce, cnonce.lengthof());
-    MD5_Update(&Md5Ctx, ":", 1);
-    MD5_Update(&Md5Ctx, (const char*)qop, qop.lengthof() );
-    MD5_Update(&Md5Ctx, ":", 1);
-  };
-  tohex(ha2,hexha2);
+  unsigned char md5_res[MD5_DIGEST_LENGTH];
   
-  MD5_Update(&Md5Ctx, (const char*)hexha2, MD5_DIGEST_LENGTH*2);
-  MD5_Final(resp, &Md5Ctx);
-  tohex(resp,hexresp);
-  response=CHARSTRING(MD5_DIGEST_LENGTH*2,(const char*)hexresp);
+  CHARSTRING h_input=method+dc_val+digestUri;
+  
+  if (qop == "auth-int") {
+    h_input=h_input+dc_val+hentity;
+  }
+  MD5((const unsigned char*)(const char *)h_input,h_input.lengthof(),md5_res);
+  
+  h_input=ha1 + dc_val + nonce + dc_val;
+  
+  if (qop.lengthof()>0) {
+    h_input=h_input+nonceCount+dc_val+cnonce+dc_val+qop+dc_val;
+  }
+  
+  h_input=h_input+md5_to_hex(md5_res);
+  
+  MD5((const unsigned char*)(const char *)h_input,h_input.lengthof(),md5_res);
+  
+  return md5_to_hex(md5_res);
 }
+
 
 ///////////////////////////////////////////////////////////////////////////////
 //  Function: f__calculateDigestResponse
@@ -190,13 +184,11 @@ CHARSTRING f__calculateDigestResponse(
   const CHARSTRING& HEntity)
 {
   CHARSTRING ha1;
-  CHARSTRING Response;
 
-  CalculateHA1(alg,user,realm,passwd,nonce,cnonce,ha1);
+  ha1=Calc_HA1(alg,user,realm,passwd,nonce,cnonce);
 
-  CalculateDigestResponse(ha1,nonce,nonceCount,cnonce,qop,method,URI,HEntity,Response);
+  return Calculate_Digest_Response(ha1,nonce,nonceCount,cnonce,qop,method,URI,HEntity);
 
-  return Response;
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -234,12 +226,10 @@ CHARSTRING f__calculateDigestHA1(
   const CHARSTRING& passwd,
   const CHARSTRING& alg)
 {
-  CHARSTRING ha1;
+  return Calc_HA1(alg,user,realm,passwd,nonce,cnonce);
 
-  CalculateHA1(alg,user,realm,passwd,nonce,cnonce,ha1);
-
-  return ha1;
 }
+
 
 ///////////////////////////////////////////////////////////////////////////////
 //  Function: f__calculateMD5
@@ -1404,5 +1394,440 @@ OCTETSTRING f__AES__CTR__128__Encrypt__Decrypt__OpenSSL (const OCTETSTRING& p_ke
 #endif
   return OCTETSTRING(data_len, enc_data);
 }
+
+
+// The operation performed depends on the value of the enc parameter. It should be set to 1 for encryption, 0 for decryption
+Cipher__Result f_cipher_data (const OCTETSTRING& pl__key, const OCTETSTRING& pl__iv, const CHARSTRING p__cipher, const OCTETSTRING& pl__data__in, OCTETSTRING& pl__data__out, int enc, const Cipher__padding& p__padding)
+{
+  init_ssl_lib();
+  pl__data__out=OCTETSTRING(0,NULL);
+  if(pl__data__in.lengthof()==0){
+    return Cipher__Result::Cipher__OK;
+  }
+
+  const EVP_CIPHER *cipher_type=EVP_get_cipherbyname((const char*)p__cipher);
+  
+  if(cipher_type==NULL){
+    TTCN_warning("Unsupported cipher name: %s",(const char*)p__cipher);
+    return Cipher__Result::Cipher__Not__Supported;
+  }
+
+ 
+  int iv_len=EVP_CIPHER_iv_length(cipher_type);
+  
+  if((iv_len!=0) && (iv_len!=pl__iv.lengthof())){
+    TTCN_warning("The length of the iv should be %d instead of %d",iv_len,(int)pl__iv.lengthof());
+    return Cipher__Result::Cipher__iv__length__error;
+  }
+  
+  int key_len=EVP_CIPHER_key_length(cipher_type);
+  if(key_len!=pl__key.lengthof()){
+    TTCN_warning("The length of the key should be %d instead of %d",key_len,(int)pl__key.lengthof());
+    return Cipher__Result::Cipher__key__length__error;
+  }
+  
+  EVP_CIPHER_CTX *ctx=EVP_CIPHER_CTX_new();
+
+  if(ctx==NULL){
+    TTCN_warning("EVP_CIPHER_CTX_new error");
+    return Cipher__Result::Cipher__Error;
+  }
+
+  EVP_CIPHER_CTX_init(ctx);  
+
+
+  if(EVP_CipherInit_ex(ctx, cipher_type , NULL, pl__key, pl__iv,enc))
+  {
+    if(p__padding != Cipher__padding::Cipher__padding__PKCS) {  // The PKCS padding automatically handled by OpenSSL
+      EVP_CIPHER_CTX_set_padding(ctx,0);  // The other padding type are handled manually
+    }
+
+    const unsigned char* data= (const unsigned char*)pl__data__in;
+    int block_size = EVP_CIPHER_CTX_block_size(ctx);
+    
+    if((p__padding == Cipher__padding::Cipher__padding__none) && // No padding -> the data size must be multiple of block size
+       (block_size) && (pl__data__in.lengthof() % block_size)){ // the data size must be multiple of block size 
+       TTCN_warning("Data size error.");
+       return Cipher__Result::Cipher__data__length__error;
+    }
+    
+    unsigned char* outbuf = (unsigned char*)Malloc(pl__data__in.lengthof() + block_size); // never return NULL by definition. DTE instead of NULL.
+                                              // The amount of data written depends on the block alignment of the encrypted data: as a result 
+                                              // the amount of data written may be anything from zero bytes to (inl + cipher_block_size - 1) so 
+                                              // out should contain sufficient room
+    int outl = 0;
+    int position = 0;
+
+    if(!EVP_CipherUpdate(ctx, outbuf, &outl, data, pl__data__in.lengthof())){
+      TTCN_warning("EVP_CipherUpdate failed.");
+      Free(outbuf);
+      EVP_CIPHER_CTX_free(ctx);
+      return Cipher__Result::Cipher__Error;
+    }
+
+    position = outl;
+    // Non PKCS padding & encryption => add the padding
+    if( (enc == 1) && (p__padding != Cipher__padding::Cipher__padding__PKCS)){
+      switch(p__padding){
+        case Cipher__padding::Cipher__padding__ISO__IEC__7816__4:{
+          unsigned char *padd_buff = (unsigned char*)Malloc(block_size);  // The maximum length of the padding is equal to the block size
+
+          // padding pattern
+          // the first byte is a mandatory byte valued '80' (Hexadecimal) followed, if needed, by 0 to N-1 bytes set to '00'
+          memset(padd_buff,0,block_size);
+          padd_buff[0] = 0x80;
+
+          if(!EVP_CipherUpdate(ctx, &outbuf[position], &outl, padd_buff, block_size - (pl__data__in.lengthof() % block_size) )){
+            TTCN_warning("EVP_CipherUpdate failed.");
+            Free(outbuf);
+            Free(padd_buff);
+            EVP_CIPHER_CTX_free(ctx);
+            return Cipher__Result::Cipher__Error;
+          }
+          
+          Free(padd_buff);
+          
+          position += outl;
+
+          break;
+        }
+        case Cipher__padding::Cipher__padding__none: // do nothing
+        default:  // do nothing
+          break;
+      }
+    }
+
+    if(!EVP_CipherFinal_ex(ctx, &outbuf[position], &outl)){
+      TTCN_warning("EVP_CipherFinal_ex failed.");
+      Free(outbuf);
+      EVP_CIPHER_CTX_free(ctx);
+      return Cipher__Result::Cipher__Error;
+    }
+
+    position += outl;
+   
+    // Non PKCS padding & decryption => remove the padding
+    if( (enc == 0) && (p__padding != Cipher__padding::Cipher__padding__PKCS)){
+      switch(p__padding){
+        case Cipher__padding::Cipher__padding__ISO__IEC__7816__4:{
+          while( (position>0) &&  (outbuf[position-1] == 0x00) ){position--;} // search for the first non null byte from the end
+          if((position == 0) || outbuf[position-1] != 0x80 ){  // which should be 0x08
+            TTCN_warning("Padding pattern error.");            // else something is wrong with the padding
+            Free(outbuf);
+            EVP_CIPHER_CTX_free(ctx);
+            return Cipher__Result::Cipher__padding__error;
+          }
+          
+          position--; // skip the 0x08
+          break;
+        }
+        case Cipher__padding::Cipher__padding__none: // do nothing
+        default:  // do nothing
+          break;
+      }
+    }
+    
+    
+    pl__data__out=OCTETSTRING(position, outbuf);
+    Free(outbuf);
+    
+  } else {
+    TTCN_warning("EVP_CipherInit_ex failed.");
+    EVP_CIPHER_CTX_free(ctx);
+    return Cipher__Result::Cipher__Error;
+  }
+
+
+  EVP_CIPHER_CTX_free(ctx);
+
+  return Cipher__Result::Cipher__OK;
+}
+
+Cipher__Result f__Encrypt__data (const OCTETSTRING& pl__key, const OCTETSTRING& pl__iv, const CHARSTRING& p__cipher, const OCTETSTRING& pl__cleartext, OCTETSTRING& pl__ciphertext, const Cipher__padding& p__padding)
+{
+  return f_cipher_data(pl__key,pl__iv,p__cipher,pl__cleartext,pl__ciphertext,1,p__padding);
+}
+
+Cipher__Result f__Decrypt__data (const OCTETSTRING& pl__key, const OCTETSTRING& pl__iv, const CHARSTRING& p__cipher, OCTETSTRING& pl__cleartext, const OCTETSTRING& pl__ciphertext, const Cipher__padding& p__padding)
+{
+  return f_cipher_data(pl__key,pl__iv,p__cipher,pl__ciphertext,pl__cleartext,0,p__padding);
+}
+
+Digest__Result f__Digest__data (const CHARSTRING& p__digest, const OCTETSTRING& pl__data, OCTETSTRING& pl__hash)
+{
+  init_ssl_lib();
+  pl__hash=OCTETSTRING(0, NULL);
+  const EVP_MD *digest_type=EVP_get_digestbyname((const char*)p__digest);
+  
+  if(digest_type==NULL){
+    TTCN_warning("Unsupported digest name: %s",(const char*)p__digest);
+    return Digest__Result::Digest__Not__Supported;
+  }
+
+ 
+  EVP_MD_CTX *ctx=EVP_MD_CTX_create();
+
+  if(ctx==NULL){
+    TTCN_warning("EVP_MD_CTX_new error");
+    return Digest__Result::Digest__Error;
+  }
+
+  EVP_MD_CTX_init(ctx);  
+
+  if(EVP_DigestInit_ex(ctx, digest_type , NULL))
+  {
+    const unsigned char* data= (const unsigned char*)pl__data;
+
+    unsigned char outbuf[EVP_MAX_MD_SIZE];
+    unsigned int outl = 0;
+
+    if(!EVP_DigestUpdate(ctx, data, pl__data.lengthof())){
+      TTCN_warning("EVP_DigestUpdate failed.");
+      EVP_MD_CTX_destroy(ctx);
+      return Digest__Result::Digest__Error;
+    }
+
+
+    if(!EVP_DigestFinal_ex(ctx, outbuf, &outl)){
+      TTCN_warning("EVP_CipherFinal_ex failed.");
+      EVP_MD_CTX_destroy(ctx);
+      return Digest__Result::Digest__Error;
+    }
+    
+    pl__hash=OCTETSTRING(outl, outbuf);
+    
+  } else {
+    TTCN_warning("EVP_DigestInit_ex failed.");
+    EVP_MD_CTX_destroy(ctx);
+    return Digest__Result::Digest__Error;
+  }
+
+
+  EVP_MD_CTX_destroy(ctx);
+
+  return Digest__Result::Digest__OK;
+}
+
+DigestSign__Result f__DigestSign__data (const CHARSTRING& p__digest, const OCTETSTRING& pl__key, const CHARSTRING& pl__passwd, const OCTETSTRING& pl__data, OCTETSTRING& pl__sign) {
+#if OPENSSL_VERSION_NUMBER >= 0x10002000L
+  init_ssl_lib();
+  DigestSign__Result ret_val=DigestSign__Result::DigestSign__Error;
+
+  pl__sign=OCTETSTRING(0, NULL);
+  const EVP_MD *digest_type=EVP_get_digestbyname((const char*)p__digest);
+  
+  if(digest_type==NULL){
+    TTCN_warning("Unsupported digest name: %s",(const char*)p__digest);
+    return DigestSign__Result::DigestSign__Not__Supported;
+  }
+
+  
+  BIO* bio = BIO_new(BIO_s_mem());
+  if(bio){
+    if(BIO_write(bio, (const unsigned char*)pl__key, pl__key.lengthof())>0){
+      EVP_PKEY* pkey =  EVP_PKEY_new();
+      if(pkey) {
+        if (PEM_read_bio_PrivateKey(bio, &pkey, NULL, (void *)(const char*)pl__passwd)) {
+          EVP_MD_CTX *md_ctx=EVP_MD_CTX_create();
+          EVP_MD_CTX_init(md_ctx);
+          if(EVP_DigestSignInit(md_ctx, NULL, digest_type, NULL, pkey) == 1){
+            if(EVP_DigestSignUpdate(md_ctx, (const unsigned char*)pl__data, pl__data.lengthof()) == 1){
+              size_t sig_len=0;
+              if(EVP_DigestSignFinal(md_ctx, NULL, &sig_len)==1){
+                unsigned char* buff=(unsigned char*)Malloc(sig_len*sizeof(unsigned char));
+                if(EVP_DigestSignFinal(md_ctx, buff, &sig_len)==1){
+                  pl__sign=OCTETSTRING(sig_len, buff);
+                  ret_val=DigestSign__Result::DigestSign__OK;
+                } else {
+                  openssl_error_to_warning("f_DigestSign_data: EVP_DigestSignFinal failed");
+                }
+                Free(buff);
+              } else {
+                openssl_error_to_warning("f_DigestSign_data: EVP_DigestSignFinal failed");
+              }
+            } else {
+              openssl_error_to_warning("f_DigestSign_data: EVP_DigestSignUpdate failed");
+            }
+          } else {
+            openssl_error_to_warning("f_DigestSign_data: EVP_DigestSignInit failed");
+          }
+          EVP_MD_CTX_destroy(md_ctx);
+        } else {
+          openssl_error_to_warning("f_DigestSign_data: PEM_read_bio_PrivateKey failed");
+        }
+
+        EVP_PKEY_free(pkey);
+      } else {
+        openssl_error_to_warning("f_DigestSign_data: EVP_PKEY_new returned NULL");
+      }
+    } else {
+      openssl_error_to_warning("f_DigestSign_data: BIO_write failed");
+    }
+    BIO_free(bio);
+  } else {
+    openssl_error_to_warning("f_DigestSign_data: BIO_new returned NULL");
+  }
+
+  return ret_val;
+#else
+  TTCN_error("The f_DigestSign_data requires at least OpenSSL 1.0.2");
+  return DigestSign__Result::DigestSign__Not__Supported;
+#endif
+}
+
+DigestSign__Result f__DigestSign__Verify__data (const CHARSTRING& p__digest, const OCTETSTRING& pl__key, const CHARSTRING& pl__passwd, const OCTETSTRING& pl__data, const OCTETSTRING& pl__sign) {
+#if OPENSSL_VERSION_NUMBER >= 0x10002000L
+  init_ssl_lib();
+  DigestSign__Result ret_val=DigestSign__Result::DigestSign__Error;
+
+
+  const EVP_MD *digest_type=EVP_get_digestbyname((const char*)p__digest);
+  
+  if(digest_type==NULL){
+    TTCN_warning("f_DigestSign_Verify_data: Unsupported digest name: %s",(const char*)p__digest);
+    return DigestSign__Result::DigestSign__Not__Supported;
+  }
+
+  
+  BIO* bio = BIO_new(BIO_s_mem());
+  if(bio){
+    if(BIO_write(bio, (const unsigned char*)pl__key, pl__key.lengthof())>0){
+      EVP_PKEY* pkey =  EVP_PKEY_new();
+      if(pkey) {
+        if (PEM_read_bio_PUBKEY(bio, &pkey, NULL, (void *)(const char*)pl__passwd)) {
+          EVP_MD_CTX *md_ctx=EVP_MD_CTX_create();
+          EVP_MD_CTX_init(md_ctx);
+          if(EVP_DigestVerifyInit(md_ctx, NULL, digest_type, NULL, pkey) == 1){
+            if(EVP_DigestVerifyUpdate(md_ctx, (const unsigned char*)pl__data, pl__data.lengthof()) == 1){
+              int verifyres=EVP_DigestVerifyFinal(md_ctx, (const unsigned char*)pl__sign,pl__sign.lengthof() );
+              switch(verifyres){
+                case 1:
+                  ret_val=DigestSign__Result::DigestSign__OK;
+                  break;
+                case 0:
+                  ret_val=DigestSign__Result::DigestSign__Verification__Failed;
+                  break;
+                default:
+                  openssl_error_to_warning("f_DigestSign_Verify_data: EVP_DigestVerifyFinal failed"); 
+              }             
+            } else {
+              openssl_error_to_warning("f_DigestSign_Verify_data: EVP_DigestVerifyUpdate failed");
+            }
+          } else {
+            openssl_error_to_warning("f_DigestSign_Verify_data: EVP_DigestVerifyInit failed");
+          }
+          EVP_MD_CTX_destroy(md_ctx);
+        } else {
+          openssl_error_to_warning("f_DigestSign_Verify_data: PEM_read_bio_PUBKEY failed");
+        }
+
+        EVP_PKEY_free(pkey);
+      } else {
+        openssl_error_to_warning("f_DigestSign_Verify_data: EVP_PKEY_new returned NULL");
+      }
+    } else {
+      openssl_error_to_warning("f_DigestSign_Verify_data: BIO_write failed");
+    }
+    BIO_free(bio);
+  } else {
+    openssl_error_to_warning("f_DigestSign_Verify_data: BIO_new returned NULL");
+  }
+
+  return ret_val;
+#else
+  TTCN_error("The f_DigestSign_Verify_data requires at least OpenSSL 1.0.2");
+  return DigestSign__Result::DigestSign__Not__Supported;
+#endif
+}
+
+TCCOpenSecurity__Result f__generate__key__iv(
+  const CHARSTRING& p__digest,
+  const CHARSTRING& p__cipher,
+  const OCTETSTRING& p__passwd,
+  const OCTETSTRING& p__salt,
+  const INTEGER& p__count,
+  OCTETSTRING& p__key,
+  OCTETSTRING& p__iv
+  ){
+  init_ssl_lib();
+  TCCOpenSecurity__Result ret_val=TCCOpenSecurity__Result::TCCOpenSecurity__Result__Error;
+
+  p__key=OCTETSTRING(0, NULL);
+  p__iv=OCTETSTRING(0, NULL);
+  const EVP_MD *digest_type=EVP_get_digestbyname((const char*)p__digest);
+  
+  if(digest_type==NULL){
+    TTCN_warning("Unsupported digest name: %s",(const char*)p__digest);
+    return TCCOpenSecurity__Result::DigestSign__Not__Supported;
+  }
+  const EVP_CIPHER *cipher_type=EVP_get_cipherbyname((const char*)p__cipher);
+  
+  if(cipher_type==NULL){
+    TTCN_warning("Unsupported cipher name: %s",(const char*)p__cipher);
+    return TCCOpenSecurity__Result::Cipher__Not__Supported;
+  }
+ 
+  const unsigned char *salt=NULL;
+  if(p__salt.lengthof()==8){
+    salt=(const unsigned char *)p__salt;
+  } else if (p__salt.lengthof()==0) {
+    salt=NULL;
+  } else {
+    TTCN_warning("Invalid p_salt length: %d",p__salt.lengthof());
+    return TCCOpenSecurity__Result::Key__IV__Salt__length__error;
+    
+  }
+  
+ 
+  int iv_len=EVP_CIPHER_iv_length(cipher_type);
+  int key_len=EVP_CIPHER_key_length(cipher_type);
+  
+  unsigned char key_data[EVP_MAX_KEY_LENGTH];
+  unsigned char iv_data[EVP_MAX_IV_LENGTH];
+  
+  if(EVP_BytesToKey(cipher_type,digest_type,salt,(const unsigned char *)p__passwd,
+                    p__passwd.lengthof(), (int)p__count,
+                    key_data,iv_data)>0){
+    ret_val=TCCOpenSecurity__Result::TCCOpenSecurity__Result__OK;
+    p__key=OCTETSTRING(key_len, key_data);
+    p__iv=OCTETSTRING(iv_len, iv_data);
+  } else {
+    openssl_error_to_warning("f_generate_key_iv: EVP_BytesToKey failed");
+  }
+  
+  return ret_val;
+}
+
+TCCOpenSecurity__Result f__HMAC__data(
+  const CHARSTRING& p__digest,
+  const OCTETSTRING& p__key,
+  const OCTETSTRING& p__data,
+  OCTETSTRING& p__hmac
+) {
+  init_ssl_lib();
+  TCCOpenSecurity__Result ret_val=TCCOpenSecurity__Result::TCCOpenSecurity__Result__Error;
+
+  p__hmac=OCTETSTRING(0, NULL);
+  const EVP_MD *digest_type=EVP_get_digestbyname((const char*)p__digest);
+  
+  if(digest_type==NULL){
+    TTCN_warning("Unsupported digest name: %s",(const char*)p__digest);
+    return TCCOpenSecurity__Result::DigestSign__Not__Supported;
+  }
+
+  unsigned int out_length;
+  unsigned char output[EVP_MAX_MD_SIZE];
+  if(HMAC(digest_type, (const unsigned char*)p__key, p__key.lengthof(), (const unsigned char*)p__data, p__data.lengthof(), output, &out_length)!=NULL){
+    p__hmac=OCTETSTRING(out_length, output);
+    ret_val=TCCOpenSecurity__Result::TCCOpenSecurity__Result__OK;
+  } else {
+    openssl_error_to_warning("f_HMAC_data: HMAC failed");
+  }
+
+
+
+  return ret_val;
+}
+
 
 }

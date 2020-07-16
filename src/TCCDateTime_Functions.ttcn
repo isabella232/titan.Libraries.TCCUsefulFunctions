@@ -1,16 +1,15 @@
-/******************************************************************************
-* Copyright (c) 2000-2019 Ericsson Telecom AB
-* All rights reserved. This program and the accompanying materials
-* are made available under the terms of the Eclipse Public License v2.0
-* which accompanies this distribution, and is available at
-* https://www.eclipse.org/org/documents/epl-2.0/EPL-2.0.html
-******************************************************************************/
+///////////////////////////////////////////////////////////////////////////////
+//
+// Copyright (c) 2000-2020 Ericsson Telecom AB
+//
+// All rights reserved. This program and the accompanying materials
+// are made available under the terms of the Eclipse Public License v2.0
+// which accompanies this distribution, and is available at
+// https://www.eclipse.org/org/documents/epl-2.0/EPL-2.0.html
 ///////////////////////////////////////////////////////////////////////////////
 //
 //  File:               TCCDateTime_Functions.ttcn
 //  Description:        TCC Useful Functions: DateTime Functions
-//  Rev:                R36B
-//  Prodnr:             CNL 113 472
 //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -71,6 +70,27 @@ external function f_time() return integer;
 //
 ///////////////////////////////////////////////////////////////////////////////
 external function f_time_ms() return integer;
+
+///////////////////////////////////////////////////////////////////////////////
+//  Function: f_time_micros
+//
+//  Purpose:
+//    Current calendar time of the system in microseconds
+//
+//  Parameters:
+//    -
+//
+//  Return Value:
+//    integer - time value
+//
+//  Errors:
+//    -
+//
+//  Detailed description:
+//    -
+//
+///////////////////////////////////////////////////////////////////////////////
+external function f_time_micros() return integer;
 
 ///////////////////////////////////////////////////////////////////////////////
 //  Function: f_ctime
@@ -280,6 +300,53 @@ external function f_getOctTpscts(in integer pl_sec:=-1, in integer pl_tz:=0) ret
 ///////////////////////////////////////////////////////////////////////////////
 external function f_getTimeFormatted(integer pl_sec, charstring pl_format)
 return charstring;
+
+///////////////////////////////////////////////////////////////////////////////
+//  Function: f_getTimeFormattedUTC
+//
+//  Purpose:
+//    Return the current calendar UTC time in a formatted way
+//
+//  Parameters:
+//    pl_sec - *in* *integer* - time value in seconds
+//    pl_format - *in* *charstring* - format string
+//
+//  Return Value:
+//    charstring - formatted UTC time in string format
+//
+//  Errors:
+//    -
+//
+//  Detailed description:
+//    Format specifiers: See f_getTimeFormatted
+//
+///////////////////////////////////////////////////////////////////////////////
+external function f_getTimeFormattedUTC(integer pl_sec, charstring pl_format)
+return charstring;
+
+///////////////////////////////////////////////////////////////////////////////
+//  Function: f_parseTimeFormatted
+//
+//  Purpose:
+//    Return the formatted time in seconds since EPOCH
+//
+//  Parameters:
+//    pl_time - *in* *charstring* - time value 
+//    pl_format - *in* *charstring* - format string
+//    pl_isUTC - *in* *boolean* - true if the date string represents UTC time, false if the string represents local time
+//
+//  Return Value:
+//    integer - seconds since epoch
+//
+//  Errors:
+//    -
+//
+//  Detailed description:
+//    Format specifiers: See f_getTimeFormatted
+//
+///////////////////////////////////////////////////////////////////////////////
+external function f_parseTimeFormatted(charstring pl_time, charstring pl_format, boolean pl_isUTC:=false)
+return integer;
 
 ///////////////////////////////////////////////////////////////////////////////
 //  Function: f_time2sec

@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// Copyright (c) 2000-2019 Ericsson Telecom AB
+// Copyright (c) 2000-2020 Ericsson Telecom AB
 //
 // All rights reserved. This program and the accompanying materials
 // are made available under the terms of the Eclipse Public License v2.0
@@ -10,8 +10,6 @@
 //
 //  File:               TCCOpenSecurity.ttcn
 //  Description:        TCC Useful Functions: Security Functions
-//  Rev:                R36B
-//  Prodnr:             CNL 113 472
 //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -661,8 +659,8 @@ external function f_AES_ECB_128_Encrypt_OpenSSL
 ///////////////////////////////////////////////////////////////////////////////
 external function f_AES_ECB_128_Decrypt_OpenSSL
 (
-  OCT_16 p_key,
-  octetstring p_data
+  in OCT_16 p_key,
+  in octetstring p_data
 ) return octetstring;
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -687,11 +685,318 @@ external function f_AES_ECB_128_Decrypt_OpenSSL
 ///////////////////////////////////////////////////////////////////////////////
 external function f_AES_CTR_128_Encrypt_Decrypt_OpenSSL
 (
-  OCT_16 p_key,
-  OCT_16 p_iv,
-  octetstring p_data
+  in OCT_16 p_key,
+  in OCT_16 p_iv,
+  in octetstring p_data
 ) return octetstring;
 
+
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// Result code enumeration for generic encrypt/decrypt functions
+//
+///////////////////////////////////////////////////////////////////////////////
+
+type enumerated TCCOpenSecurity_Result{
+  // Cipher related result codes
+    Cipher_OK,   // Everything was OK
+    Cipher_Not_Supported, // The selected cipher mode is not supported by the current OpenSSL
+    Cipher_iv_length_error, // Wrong iv specified
+    Cipher_key_length_error, // Wrong key specified
+    Cipher_data_length_error, // The data length is not the multiple of the block size
+    Cipher_padding_error, // The decoded padding doesn't valid
+    Cipher_Error,  // Something went wrong
+
+  // Digest related result codes
+    Digest_OK,   // Everything was OK
+    Digest_Not_Supported, // The selected digest is not supported by the current OpenSSL
+    Digest_Error,  // Something went wrong
+  
+  // Signature related result codes
+    DigestSign_OK,            // Everything was OK
+    DigestSign_Verification_Failed,  // Signiture verification failed
+    DigestSign_Not_Supported, // The selected digest is not supported by the current OpenSSL
+    DigestSign_Error,          // Something went wrong
+    
+  // Key & IV generation related result codes
+    Key_IV_Salt_length_error,  // The length of the salt is not 0 or 8 octet
+
+  // Generic codes
+    TCCOpenSecurity_Result_OK,               // Everything was OK
+    TCCOpenSecurity_Result_Error             // Something went wrong
+}
+
+type TCCOpenSecurity_Result Cipher_Result
+
+///////////////////////////////////////////////////////////////////////////////
+//
+// Padding specification for generic encrypt/decrypt functions
+//
+///////////////////////////////////////////////////////////////////////////////
+
+type enumerated Cipher_padding { Cipher_padding_none,   // No padding is used, the data length must be the multiple of block size
+                                 Cipher_padding_PKCS,   // PKCS padding, used by default RFC 5652
+                                 Cipher_padding_ISO_IEC_7816_4 // ISO padding, specified in ISO/IEC 7816/4
+}
+
+
+///////////////////////////////////////////////////////////////////////////////
+//  Function: f_Encrypt_data
+//
+//  Purpose: Encrypt the provided cleartext using the specified cipher 
+//
+//  Parameters:
+//          p_key            - *in* *octetstring*   - Key
+//          p_iv             - *in* *octetstring*   - Initialiazation Vector if applicable
+//          p_cipher          - *in* *charstring*  - Cipher name. 
+//                                             Note: the usable cipher names depend on the OpenSSL library
+//                                                 See openssl/evp.h & openssl/obj_mac.h
+//                                                                       
+//          p_cleartext      - *in* *octetstring*   - Data to encrypt
+//          p_ciphertext     - *out* *octetstring*   - Encrypted data
+//          p_padding        - *in* *Cipher_padding* - The padding to use, default: Cipher_padding_PKCS
+//
+//  Return Value:
+//         Cipher_Result - result
+//
+//  Errors:
+//      -
+//
+//  Detailed description:
+//      -
+//
+///////////////////////////////////////////////////////////////////////////////
+
+external function f_Encrypt_data(
+  in octetstring p_key,
+  in octetstring p_iv := ''O,
+  in charstring p_cipher,
+  in octetstring p_cleartext,
+  out octetstring p_ciphertext,
+  in Cipher_padding p_padding := Cipher_padding_PKCS
+) return Cipher_Result
+
+///////////////////////////////////////////////////////////////////////////////
+//  Function: f_Decrypt_data
+//
+//  Purpose: Decrypt the provided ciphertext using the specified cipher 
+//
+//  Parameters:
+//          p_key            - *in* *octetstring*   - Key
+//          p_iv             - *in* *octetstring*   - Initialiazation Vector if applicable
+//          p_cipher          - *in* *charstring*  - Cipher name. 
+//                                             Note: the usable cipher names depend on the OpenSSL library
+//                                                 See openssl/evp.h & openssl/obj_mac.h
+//                                                                       
+//          p_cleartext      - *out* *octetstring*   - Decripted data
+//          p_ciphertext      - *in* *octetstring*   - Encrypted data
+//          p_padding        - *in* *Cipher_padding* - The padding to use, default: Cipher_padding_PKCS
+//
+//  Return Value:
+//         Cipher_Result - result
+//
+//  Errors:
+//      -
+//
+//  Detailed description:
+//      -
+//
+///////////////////////////////////////////////////////////////////////////////
+
+external function f_Decrypt_data(
+  in octetstring p_key,
+  in octetstring p_iv := ''O,
+  in charstring p_cipher,
+  out octetstring p_cleartext,
+  in octetstring p_ciphertext,
+  in Cipher_padding p_padding := Cipher_padding_PKCS
+) return Cipher_Result
+
+type TCCOpenSecurity_Result Digest_Result
+
+///////////////////////////////////////////////////////////////////////////////
+//  Function: f_Digest_data
+//
+//  Purpose: Digest the provided data using the specified digest algorithm 
+//
+//  Parameters:
+//          p_digest          - *in* *charstring*  - Digest name. 
+//                                             Note: the usable digest names depend on the OpenSSL library
+//                                                 See openssl/evp.h & openssl/obj_mac.h
+//                                                                       
+//          p_data      - *in* *octetstring*   - data
+//          p_hash    - *out* *octetstring*   - digest of the data
+//
+//  Return Value:
+//         Digest_Result - result
+//
+//  Errors:
+//      -
+//
+//  Detailed description:
+//      -
+//
+///////////////////////////////////////////////////////////////////////////////
+
+external function f_Digest_data(
+  in charstring p_digest,
+  in octetstring p_data,
+  out octetstring p_hash
+) return Digest_Result
+
+
+type TCCOpenSecurity_Result DigestSign_Result
+
+///////////////////////////////////////////////////////////////////////////////
+//  Function: f_DigestSign_data
+//
+//  Purpose: Create the signiture of the data, using the provided private key and digest
+//           The available digest and key combination depends on the version OpenSSL library 
+//
+//  Parameters:
+//          p_digest          - *in* *charstring*  - Digest name. 
+//                                             Note: the usable digest names depend on the OpenSSL library
+//                                                 See openssl/evp.h & openssl/obj_mac.h
+//                                                                       
+//          p_key       - *in* *octetstring*  - the private key in PEM format
+//          p_passwd    - *in* *charstring*   - the password of the private key. Empty string -> no password
+//          p_data      - *in* *octetstring*  - data
+//          p_sign      - *out* *octetstring* - the signiture of the data
+//
+//  Return Value:
+//         DigestSign_Result - result
+//
+//  Errors:
+//      -
+//
+//  Detailed description:
+//      -
+//
+///////////////////////////////////////////////////////////////////////////////
+
+external function f_DigestSign_data(
+  in charstring p_digest,
+  in octetstring p_key,
+  in charstring p_passwd,
+  in octetstring p_data,
+  out octetstring p_hash
+) return DigestSign_Result
+
+///////////////////////////////////////////////////////////////////////////////
+//  Function: f_DigestSign_Verify_data
+//
+//  Purpose: Verifies the signiture of the data, using the provided public key and digest
+//           The available digest and key combination depends on the version OpenSSL library 
+//
+//  Parameters:
+//          p_digest          - *in* *charstring*  - Digest name. 
+//                                             Note: the usable digest names depend on the OpenSSL library
+//                                                 See openssl/evp.h & openssl/obj_mac.h
+//                                                                       
+//          p_key       - *in* *octetstring*  - the public key in PEM format
+//          p_passwd    - *in* *charstring*   - the password of the public key. Empty string -> no password
+//          p_data      - *in* *octetstring*  - data
+//          p_sign      - *in* *octetstring*  - the signiture to verify
+//
+//  Return Value:
+//         DigestSign_Result - result
+//
+//  Errors:
+//      -
+//
+//  Detailed description:
+//      -
+//
+///////////////////////////////////////////////////////////////////////////////
+
+external function f_DigestSign_Verify_data(
+  in charstring p_digest,
+  in octetstring p_key,
+  in charstring p_passwd,
+  in octetstring p_data,
+  in octetstring p_sign
+) return DigestSign_Result
+
+///////////////////////////////////////////////////////////////////////////////
+//  Function: f_generate_key_iv
+//
+//  Purpose: Derives a key and IV from various parameters.
+//           See the EVP_BytesToKey function of the OpenSSL
+//
+//  Parameters:
+//          p_digest   - *in* *charstring*  - Digest name. 
+//                                             Note: the usable digest names depend on the OpenSSL library
+//                                                 See openssl/evp.h & openssl/obj_mac.h
+//          p_cipher    - *in* *charstring*  - Cipher name. 
+//                                             Note: the usable cipher names depend on the OpenSSL library
+//                                                 See openssl/evp.h & openssl/obj_mac.h
+//          p_passwd    - *in* *octetstring*   - the password used to derive the keying data.
+//          p_salt      - *in* *octetstring*   - the salt used to derive the keying data. Should be 8 octet length. Empty string -> no salt
+//          p_count     - *in* *integer*       - the iteration count
+//                                                                       
+//          p_key       - *out* *octetstring*  - the derived key
+//          p_iv        - *out* *octetstring*  - the derived iv
+//
+//  Return Value:
+//         TCCOpenSecurity_Result - result
+//             TCCOpenSecurity_Result_OK           - Everything was OK
+//             TCCOpenSecurity_Result_Error        - Something went wrong
+//             Key_IV_Salt_length_error            - The length of the salt is not 0 or 8 octet
+//             Cipher_Not_Supported                - The selected cipher mode is not supported by the current OpenSSL
+//             Digest_Not_Supported                - The selected digest is not supported by the current OpenSSL
+//
+//  Errors:
+//      -
+//
+//  Detailed description:
+//      -
+//
+///////////////////////////////////////////////////////////////////////////////
+
+external function f_generate_key_iv(
+  in charstring p_digest,
+  in charstring p_cipher,
+  in octetstring p_passwd,
+  in octetstring p_salt,
+  in integer p_count,
+  out octetstring p_key,
+  out octetstring p_iv
+) return TCCOpenSecurity_Result
+
+///////////////////////////////////////////////////////////////////////////////
+//  Function: f_HMAC_data
+//
+//  Purpose: Computes the message authentication code using the given hash function
+//
+//  Parameters:
+//          p_digest    - *in* *charstring*  - Digest name. 
+//                                             Note: the usable digest names depend on the OpenSSL library
+//                                                 See openssl/evp.h & openssl/obj_mac.h
+//          p_key       - *in* *octetstring*   - key of the hash function
+//          p_data      - *in* *octetstring*   - the data to be authenticated
+//          p_hmac      - *out* *octetstring*  - the derived iv
+//
+//  Return Value:
+//         TCCOpenSecurity_Result - result
+//             TCCOpenSecurity_Result_OK           - Everything was OK
+//             TCCOpenSecurity_Result_Error        - Something went wrong
+//             Digest_Not_Supported                - The selected digest is not supported by the current OpenSSL
+//
+//  Errors:
+//      -
+//
+//  Detailed description:
+//      -
+//
+///////////////////////////////////////////////////////////////////////////////
+
+external function f_HMAC_data(
+  in charstring p_digest,
+  in octetstring p_key,
+  in octetstring p_data,
+  out octetstring p_hmac
+) return TCCOpenSecurity_Result
 
 
 }

@@ -1,16 +1,15 @@
-/******************************************************************************
-* Copyright (c) 2000-2019 Ericsson Telecom AB
-* All rights reserved. This program and the accompanying materials
-* are made available under the terms of the Eclipse Public License v2.0
-* which accompanies this distribution, and is available at
-* https://www.eclipse.org/org/documents/epl-2.0/EPL-2.0.html
-******************************************************************************/
+///////////////////////////////////////////////////////////////////////////////
+//
+// Copyright (c) 2000-2020 Ericsson Telecom AB
+//
+// All rights reserved. This program and the accompanying materials
+// are made available under the terms of the Eclipse Public License v2.0
+// which accompanies this distribution, and is available at
+// https://www.eclipse.org/org/documents/epl-2.0/EPL-2.0.html
 ///////////////////////////////////////////////////////////////////////////////
 //
 //  File:               TCCFileIO.cc
 //  Description:        TCC Useful Functions: FileIO Functions
-//  Rev:                R36B
-//  Prodnr:             CNL 113 472
 //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -747,29 +746,29 @@ INTEGER f__FIO__read__text__until (const INTEGER& pl__fd,
             "End of file", __FILE__, __LINE__);
         }
       if (buf == NULL || byte_num + bytes >= buf_size)
-	{
-	  int new_size = 2 * buf_size;
-	  char *new_buf = (char *) Realloc (buf, sizeof (char) * new_size);
-	  /* Blank it first time.  */
-	  if (new_size == BUF_SIZE << 2)
-	    bzero (new_buf, new_size);
-	  if (!new_buf)
-	    {
+        {
+          int new_size = 2 * buf_size;
+          char *new_buf = (char *) Realloc (buf, sizeof (char) * new_size);
+          /* Blank it first time.  */
+          if (new_size == BUF_SIZE << 2)
+            bzero (new_buf, new_size);
+          if (!new_buf)
+            {
               if (buf != NULL)
                 Free (buf);
               return f__FIO__realize__error ("f__FIO__read__text__until",
                 "Cannot allocate memory", __FILE__, __LINE__);
- 	    }
-	  buf = new_buf;
-	  buf_size = new_size;
-	}
+             }
+          buf = new_buf;
+          buf_size = new_size;
+        }
       memcpy (buf + byte_num, buf_tmp, bytes);
       byte_num += bytes;
       /* We always have space for the trailing '\0'.  */
       buf[byte_num] = '\0';
       if (strlen (buf) >= strlen (pl__separator))
-	if (strstr (buf, pl__separator) != NULL)
-	  break;
+        if (strstr (buf, pl__separator) != NULL)
+          break;
     }
   int back = buf + byte_num - strstr (buf, pl__separator) -
     strlen (pl__separator);
@@ -908,25 +907,228 @@ INTEGER f__FIO__set__filedescriptor__previousline (const INTEGER& pl__fd)
       }
       
       if ((p != 0) && (founded == 0)) {
-    	  founded++;
-    	  p--;
-    	  while ((buf_tmp[p] != '\n') && (p != 0) ) {
-    	          p--;
-    	  }
-    	  if ((p != 0) && (founded == 1)) {
-    	      	  lseek(pl__fd,-(length-p)+1,SEEK_CUR);
-    	      	  return 1;
-    	  }  
+              founded++;
+              p--;
+              while ((buf_tmp[p] != '\n') && (p != 0) ) {
+                      p--;
+              }
+              if ((p != 0) && (founded == 1)) {
+                            lseek(pl__fd,-(length-p)+1,SEEK_CUR);
+                            return 1;
+              }  
       }
            
       if ((p != 0) && (founded == 1)) {
-    	  lseek(pl__fd,-(length-p)+1,SEEK_CUR);
-    	  return 1; 	      	  
+              lseek(pl__fd,-(length-p)+1,SEEK_CUR);
+              return 1;                         
       }
           
       lseek(pl__fd,-length,SEEK_CUR);
   }   
 }
+
+/* Function f__FIO__read__data__csv__record
+
+  it reads on CSV record.
+*/
+INTEGER f__FIO__read__data__csv__record(const INTEGER& pl__fd, TCC__csv__record& pl__record, const CHARSTRING& pl__field__sep ){
+#ifdef ENABLE_CHECKING
+  std::map<int, std::string>::iterator iter = opened_files.find (pl__fd);
+  if (iter == opened_files.end ())
+    return f__FIO__realize__error ("f__FIO__read__data__csv__record",
+      "The file is not opened", __FILE__, __LINE__);
+#endif
+  
+  pl__record=NULL_VALUE;
+  
+  ssize_t read_octets=0;  // We read that many octets
+  ssize_t used_octets=0;  // but we only used that many
+  
+  char buf_tmp[BUF_SIZE]; // We read the data from file into this buffer
+  
+  int parsing_state=0;  
+  char* str_start=NULL;
+  int str_length=0;
+  int more_data_needed=1;
+  int continue_string=0;
+  
+  const char* fsep=(const char*)pl__field__sep;
+  
+  while(more_data_needed){  // Lets rock
+    // read 
+    ssize_t bytes = read (pl__fd, buf_tmp, BUF_SIZE);
+    if (bytes < 0) { // Read error
+      return f__FIO__realize__error ("f__FIO__read__data__csv__record",
+            "Read error", __FILE__, __LINE__);
+    }
+    if(bytes == 0){  // Reach EOF
+      break;  // break the loop, the already processed data will be returned
+    }
+    
+    str_start=NULL;
+    str_length=0;
+    int field_found=0;
+
+    read_octets+=bytes;
+    
+    for(int i=0;i<bytes;i++){
+      used_octets++;
+      switch(parsing_state){ 
+        case 0: // initial case, ready to read field
+          switch(buf_tmp[i]){
+            case '\r':  // CR
+              parsing_state=1; // wait for LF
+              break;
+            case '\n': // LF - UNIX line ending - End of record
+              more_data_needed=0; // reached the end
+              i=bytes; // break the for loop
+              parsing_state=0; 
+              break;
+            case '"': // quoted string start
+              parsing_state=2;  // quoted string body
+              field_found=1;
+              break;
+            default: // beginning of the field
+              if(buf_tmp[i]==(*fsep)){
+                if(continue_string){
+                  pl__record[pl__record.lengthof()-1]=pl__record[pl__record.lengthof()-1] + CHARSTRING(str_length,str_start);
+                } else {
+                  pl__record[pl__record.lengthof()]=CHARSTRING(str_length,str_start);
+                }
+                continue_string=0;
+                str_start = NULL;
+                str_length = 0;
+                parsing_state=0;
+                field_found=1;
+              } else {
+              
+                parsing_state=3; //  normal field parsing
+                str_start=buf_tmp+i;
+                str_length++;
+                field_found=1;
+              }
+              break;
+          }
+          break; // end case 0:
+        
+        case 1: // wait for LF
+          if(buf_tmp[i]!='\n'){ // Not LF -> format error
+            return -1;
+          }
+          more_data_needed=0; // reached the end
+          i=bytes; // break the for loop
+          parsing_state=0; 
+          break;
+          
+        case 2: // quoted string body
+          if(buf_tmp[i] == '"'){  // possible end of quoted string
+            parsing_state=4; // quoted string possible end
+          } else {
+            if(str_start == NULL) {
+              str_start=buf_tmp+i;
+            }
+            str_length++;
+          }
+          break;
+        
+        case 3: //  normal field parsing
+          switch(buf_tmp[i]){
+            case '\r':  // CR
+              parsing_state=1; // wait for LF
+              break;
+            case '\n': // LF - UNIX line ending - End of record
+              more_data_needed=0; // reached the end
+              i=bytes; // break the for loop
+              parsing_state=0; 
+              break;
+              
+            default:
+              if(buf_tmp[i]==(*fsep)){
+                if(continue_string){
+                  pl__record[pl__record.lengthof()-1]=pl__record[pl__record.lengthof()-1] + CHARSTRING(str_length,str_start);
+                } else {
+                  pl__record[pl__record.lengthof()]=CHARSTRING(str_length,str_start);
+                }
+                continue_string=0;
+                str_start = NULL;
+                str_length = 0;
+                parsing_state=0;
+              } else {
+                str_length++;
+              }
+              break;
+          }
+          break;
+        
+        case 4: // quoted string possible end
+          switch(buf_tmp[i]){
+            case '"':
+              // Store the field part, add " and prepare to coutinue the field
+              if(continue_string){
+                pl__record[pl__record.lengthof()-1]=pl__record[pl__record.lengthof()-1] + CHARSTRING(str_length,str_start) + CHARSTRING("\"");
+              } else {
+                pl__record[pl__record.lengthof()]=CHARSTRING(str_length,str_start) + CHARSTRING("\"");
+              }
+              str_start = NULL;
+              str_length = 0;
+              
+              continue_string=1;
+              parsing_state=2;  // go back to quoted string body
+              break;
+            case '\r':  // CR
+              parsing_state=1; // wait for LF
+              break;
+            case '\n': // LF - UNIX line ending - End of record
+              more_data_needed=0; // reached the end
+              i=bytes; // break the for loop
+              parsing_state=0; 
+              break;
+              
+            default:
+              if(buf_tmp[i]==(*fsep)){ // the quoted string ended, store it and rewind this octet
+                if(continue_string){
+                  pl__record[pl__record.lengthof()-1]=pl__record[pl__record.lengthof()-1] + CHARSTRING(str_length,str_start);
+                } else {
+                  pl__record[pl__record.lengthof()]=CHARSTRING(str_length,str_start);
+                }
+                continue_string=0;
+                str_start = NULL;
+                str_length = 0;
+                parsing_state=0;
+              } else { // format error
+                return -1;
+              }
+              break;
+          }
+          
+          
+          break;
+          
+      }
+    }
+    if(field_found){ // Store the last readed field 
+      if(continue_string){
+        pl__record[pl__record.lengthof()-1]=pl__record[pl__record.lengthof()-1] + CHARSTRING(str_length,str_start);
+      } else {
+        pl__record[pl__record.lengthof()]=CHARSTRING(str_length,str_start);
+      }
+      str_start = NULL;
+      str_length = 0;
+      
+      continue_string= (parsing_state==0)?0:1; // next read cycle will continue the field data.
+    }
+    
+    
+    
+  }
+
+
+  
+  lseek(pl__fd, -(read_octets - used_octets), SEEK_CUR); // set the file position to the last processed octet
+  
+  return used_octets==0?0:1;  // If we didn't processed any octets we reached the EOF
+}
+
 
 /* Function: f__FIO__read__data__TLV
 
@@ -973,30 +1175,30 @@ INTEGER f__FIO__read__data__TLV (const INTEGER& pl__fd,
             "End of file", __FILE__, __LINE__);
         }
       if (buf == NULL || byte_num + bytes >= buf_size)
-	{
-	  int new_size = 2 * buf_size;
-	  unsigned char *new_buf = (unsigned char *) Realloc (buf, sizeof (char) * new_size);
-	  /* Blank it first time.  */
-	  if (new_size == BUF_SIZE << 2)
-	    bzero (new_buf, new_size);
-	  if (!new_buf)
-	    {
+        {
+          int new_size = 2 * buf_size;
+          unsigned char *new_buf = (unsigned char *) Realloc (buf, sizeof (char) * new_size);
+          /* Blank it first time.  */
+          if (new_size == BUF_SIZE << 2)
+            bzero (new_buf, new_size);
+          if (!new_buf)
+            {
               if (buf != NULL)
                 Free (buf);
               return f__FIO__realize__error ("f__FIO__read__data__TLV",
                 "Cannot allocate memory", __FILE__, __LINE__);
- 	    }
-	  buf = new_buf;
-	  buf_size = new_size;
-	}
+             }
+          buf = new_buf;
+          buf_size = new_size;
+        }
       memcpy (buf + byte_num, buf_tmp, bytes);
       byte_num += bytes;
 
       /* Check for TLV structure */
       if (ASN_BER_str2TLV(byte_num,buf,tlv,BER_ACCEPT_ALL))
         {
-	  tlvlength = tlv.get_len();
-	  break;
+          tlvlength = tlv.get_len();
+          break;
         }
     }
   /* Ignore the characters after the delimiter.  */
@@ -1396,10 +1598,10 @@ FIO__FileInfo f__FIO__getFileInfo(const CHARSTRING& name) {
   struct stat sb;
 
   if (!f__FIO__fileOrDirExists(name)) {
-	  type = FIO__FileType::NotExists;
+          type = FIO__FileType::NotExists;
   } else {
     if (stat(name, &sb) == -1) {
-    	type = FIO__FileType::ErrorReadingFile;
+            type = FIO__FileType::ErrorReadingFile;
     }
 
     switch (sb.st_mode & S_IFMT) {

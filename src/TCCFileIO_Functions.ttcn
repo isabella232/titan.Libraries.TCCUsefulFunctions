@@ -1,16 +1,15 @@
-/******************************************************************************
-* Copyright (c) 2000-2019 Ericsson Telecom AB
-* All rights reserved. This program and the accompanying materials
-* are made available under the terms of the Eclipse Public License v2.0
-* which accompanies this distribution, and is available at
-* https://www.eclipse.org/org/documents/epl-2.0/EPL-2.0.html
-******************************************************************************/
+///////////////////////////////////////////////////////////////////////////////
+//
+// Copyright (c) 2000-2020 Ericsson Telecom AB
+//
+// All rights reserved. This program and the accompanying materials
+// are made available under the terms of the Eclipse Public License v2.0
+// which accompanies this distribution, and is available at
+// https://www.eclipse.org/org/documents/epl-2.0/EPL-2.0.html
 ///////////////////////////////////////////////////////////////////////////////
 //
 //  File:               TCCFileIO_Functions.ttcn
 //  Description:        TCC Useful Functions: FileIO Functions
-//  Rev:                R36B
-//  Prodnr:             CNL 113 472
 //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -658,5 +657,81 @@ type record FIO_FileInfo {
 //
 ///////////////////////////////////////////////////////////////////////////////
 external function f_FIO_getFileInfo (in charstring p_name) return FIO_FileInfo;
+
+
+/****************************************************************
+*
+*  CSV related functions
+*
+****************************************************************/
+
+type record of charstring TCC_csv_record
+  
+type record of TCC_csv_record TCC_csv_record_list
+
+/******************************
+*
+* Reads the whole CSV file
+*
+* Return value: The number of records or -1 in the case of error
+*
+******************************/  
+function f_FIO_read_csv_file(in charstring pl_filename, out TCC_csv_record_list pl_record_list, in charstring pl_field_sep:="," ) return integer {
+  var integer vl_ret_val:=0
+  // open the file for read
+  var integer vl_fd:=f_FIO_open_rdonly(pl_filename)
+  
+  pl_record_list:={}
+  
+  if(vl_fd<0){
+    // Can't open the file
+    return -1;
+  }
+  
+  var TCC_csv_record vl_record:={};
+  // read the first record
+  var integer pl_read_res:=f_FIO_read_data_csv_record(vl_fd,vl_record,pl_field_sep)
+  
+  while(pl_read_res!=0){ // While not EOF
+    if(pl_read_res<0){
+      // read error
+      if(f_FIO_close(vl_fd) != 0 ){
+        log("f_FIO_close failed")
+      }
+      return -1;
+    }
+    
+    // Store the read record
+    
+    pl_record_list[vl_ret_val]:=vl_record
+    
+    vl_ret_val:= vl_ret_val + 1
+    
+    // Read the next record
+    pl_read_res:=f_FIO_read_data_csv_record(vl_fd,vl_record,pl_field_sep)
+    
+  }
+
+  if(f_FIO_close(vl_fd) != 0 ){
+    log("f_FIO_close failed")
+  }
+  return vl_ret_val
+  
+}
+
+/******************************
+*
+* Reads one record from CSV file
+*
+* Open the file with f_FIO_open_rdonly
+* and close it with f_FIO_close
+*
+* Return value: 1  - one record was read successfully
+*               0  - no record was be read, EOF reached
+*              -1  - error
+*
+******************************/  
+external function f_FIO_read_data_csv_record(in integer pl_fd, out TCC_csv_record pl_record, in charstring pl_field_sep:=","  ) return integer
+
 
 }

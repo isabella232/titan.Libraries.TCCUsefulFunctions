@@ -1,0 +1,82 @@
+///////////////////////////////////////////////////////////////////////////////
+//
+// Copyright (c) 2000-2020 Ericsson Telecom AB
+//
+// All rights reserved. This program and the accompanying materials
+// are made available under the terms of the Eclipse Public License v2.0
+// which accompanies this distribution, and is available at
+// https://www.eclipse.org/org/documents/epl-2.0/EPL-2.0.html
+///////////////////////////////////////////////////////////////////////////////
+//
+//  File:               TCCUUID_Functions.ttcn
+//  Description:        TCC Useful Functions: UUID functions
+//
+///////////////////////////////////////////////////////////////////////////////
+
+module TCCUUID_Functions {
+  import from TCCOpenSecurity_Functions all;
+  import from TCCConversion_Functions all;
+
+  type record TCC_UUID
+  {
+    octetstring  time_low length(4),
+    octetstring  time_mid length(2),
+    octetstring  time_hi_and_version length(2),
+    octetstring  clock_seq_hi_and_reserved length(1),
+    octetstring  clock_seq_low length(1),
+    octetstring  node length(6)
+  }
+
+  function f_UUIDToOctetstring( in TCC_UUID pl_uuid) return octetstring {
+    return ( pl_uuid.time_low & pl_uuid.time_mid & pl_uuid.time_hi_and_version &
+      pl_uuid.clock_seq_hi_and_reserved & pl_uuid.clock_seq_low & pl_uuid.node );
+  }
+
+  function f_UUIDToCharstring(in TCC_UUID pl_uuid) return charstring {
+    return f_putInLowercase(oct2str( pl_uuid.time_low ) & "-" &
+      oct2str( pl_uuid.time_mid ) & "-" &
+      oct2str( pl_uuid.time_hi_and_version ) & "-" &
+      oct2str( pl_uuid.clock_seq_hi_and_reserved & pl_uuid.clock_seq_low ) & "-" &
+      oct2str( pl_uuid.node ));
+  }
+
+
+  function f_gen_UUID_v4() return TCC_UUID{
+    return f_finalize_uuid(f_calculateRAND_oct(16),'0100'B)
+  }
+
+  function f_gen_UUID_v3(in TCC_UUID pl_nameSpaceId, in octetstring pl_name) return TCC_UUID {
+    return f_finalize_uuid(f_calculateMD5_oct( f_UUIDToOctetstring( pl_nameSpaceId ) & pl_name ),'0011'B)
+  }
+
+  function f_gen_UUID_v5(in TCC_UUID pl_nameSpaceId, in octetstring pl_name) return TCC_UUID {
+    return f_finalize_uuid(f_calculateSHA1_oct( f_UUIDToOctetstring( pl_nameSpaceId ) & pl_name ),'0101'B)
+  }
+
+  function f_finalize_uuid(in octetstring pl_pure_uuid, in bitstring pl_version_string) return TCC_UUID {
+    var TCC_UUID vl_uuid := {};
+    //Set octets zero through 3 of the time_low field to octets zero through 3 of the pl_pure_uuid
+    vl_uuid.time_low := substr( pl_pure_uuid, 0, 4 );
+
+    //Set octets zero and one of the time_mid field to octets 4 and 5 of the pl_pure_uuid
+    vl_uuid.time_mid := substr( pl_pure_uuid, 4, 2 );
+
+    //Set octets zero and one of the time_hi_and_version field to octets 6 and 7 of the pl_pure_uuid.
+    //Set the version field
+    var octetstring vl_version_mask := bit2oct(pl_version_string & '0000'B) & '00'O;
+    vl_uuid.time_hi_and_version := (substr( pl_pure_uuid, 6, 2 ) and4b '0fff'O) or4b vl_version_mask;
+
+    //Set the clock_seq_hi_and_reserved field to octet 8 of the pl_pure_uuid
+    // Set the variant
+    vl_uuid.clock_seq_hi_and_reserved := (substr( pl_pure_uuid, 8, 1 ) and4b '3f'O) or4b '80'O;
+
+    //Set the clock_seq_low field to octet 9 of the pl_pure_uuid.
+    vl_uuid.clock_seq_low := substr( pl_pure_uuid, 9, 1 );
+
+    //Set octets zero through five of the node field to octets 10 through 15 of the pl_pure_uuid.
+    vl_uuid.node := substr( pl_pure_uuid, 10, 6 );
+
+    return vl_uuid;
+  }
+
+}

@@ -1,6 +1,6 @@
 ///////////////////////////////////////////////////////////////////////////////
 //
-// Copyright (c) 2000-2019 Ericsson Telecom AB
+// Copyright (c) 2000-2020 Ericsson Telecom AB
 //
 // All rights reserved. This program and the accompanying materials
 // are made available under the terms of the Eclipse Public License v2.0
@@ -10,8 +10,6 @@
 //
 //  File:               TCCIPsec_XFRM.cc
 //  Description:        TCC Useful Functions: IPsec XFRM Functions
-//  Rev:                R36B
-//  Prodnr:             CNL 113 472
 //
 ///////////////////////////////////////////////////////////////////////////////
 #include <stdio.h>
@@ -25,6 +23,7 @@
 #include <errno.h>
 #include <time.h>
 #include <signal.h>
+#include <sys/time.h>
 
 #ifdef LINUX
   #include <linux/netlink.h>
@@ -50,6 +49,38 @@ public:
 }; //end of class Message
 
 namespace TCCIPsec__XFRM__Definitions {
+  
+static size_t add_policy_counter=0;
+static size_t delete_policy_counter=0;
+static size_t add_sa_counter=0;
+static size_t delete_sa_counter=0;
+static time_t min_counter=0;
+static time_t max_counter=0;
+static double avg_counter=0;
+static size_t avg_num=0;
+static int warning_counter=0;
+
+XFRM__statistic f__XFRM__get__statistic(const BOOLEAN& pl__reset__stats){
+  XFRM__statistic ret_val;
+  ret_val.add__policy().set_long_long_val(add_policy_counter);
+  ret_val.add__sa().set_long_long_val(add_sa_counter);
+  ret_val.delete__policy().set_long_long_val(delete_policy_counter);
+  ret_val.delete__sa().set_long_long_val(delete_sa_counter);
+  ret_val.min__exec__time().set_long_long_val(min_counter);
+  ret_val.max__exec__time().set_long_long_val(max_counter);
+  ret_val.average__exec__time()=avg_counter;
+  if((bool)pl__reset__stats){
+    add_policy_counter=0;
+    delete_policy_counter=0;
+    add_sa_counter=0;
+    delete_sa_counter=0;
+    min_counter=0;
+    max_counter=0;
+    avg_counter=0;
+    avg_num=0;
+  }
+  return ret_val;
+}
 
 XFRM__Result send(int fd, void* msg, int len, unsigned long* spi) {
   struct msghdr smsg;
@@ -61,6 +92,10 @@ XFRM__Result send(int fd, void* msg, int len, unsigned long* spi) {
   struct sockaddr_nl from;
   struct nlmsghdr* hdr;
   int rlen;
+  struct timeval s_time;
+  struct timeval e_time;
+  int time_res=gettimeofday(&s_time,NULL);
+
 
   memset(&dest,0,sizeof(dest));
   dest.nl_family = AF_NETLINK;
@@ -99,6 +134,34 @@ XFRM__Result send(int fd, void* msg, int len, unsigned long* spi) {
     close(fd);
     return XFRM__Result(-1,"TCCIPsec XFRM: Error in receiving message from the kernel!"); 
   };
+
+  if(time_res==0){ // gettimeofday for the s_time was successful
+    int time_res=gettimeofday(&e_time,NULL);
+    if(time_res==0){ // gettimeofday for the e_time was successful
+      time_t s_time_us= s_time.tv_sec*1000000 + s_time.tv_usec;
+      time_t e_time_us= e_time.tv_sec*1000000 + e_time.tv_usec;
+      
+     if(e_time_us>s_time_us){  // there was no time warp
+       time_t tdiff=e_time_us - s_time_us;
+       if(tdiff > ((int)tsp__XFRM__time__warning__treshold__ms * 1000) ){
+         if(warning_counter == 0){
+           TTCN_warning("IPSec handling took more than %d ms: %ld", (int)tsp__XFRM__time__warning__treshold__ms, tdiff/1000);
+         }
+         warning_counter++;
+         if(warning_counter == 100){
+           warning_counter=0;
+         }
+       }
+       if((bool)tsp__XFRM__time__statistic__enabled){
+         avg_num++;
+         
+         avg_counter=avg_counter+(tdiff - avg_counter)/avg_num;
+         if(tdiff>max_counter){max_counter=tdiff;}
+         if(tdiff<min_counter || min_counter==0) {min_counter=tdiff;}
+       }
+     }
+    }
+  }
 
   //Processing response
   //Message Format:
@@ -172,6 +235,7 @@ XFRM__Result f__XFRM__add__sa(const SAAddInfo& sa_info){
   unsigned int auth_key_len = 0;
   unsigned int payload_len;
   int size;
+  add_sa_counter++;
 
   TTCN_Logger::log( TTCN_DEBUG,"###### Adding new SAs to the database:");
   payload_len = NLA_ALIGN(sizeof(struct xfrm_usersa_info));
@@ -213,6 +277,7 @@ XFRM__Result f__XFRM__delete__sa(const SADelInfo& sa_info){
   unsigned long spi = 0;
   unsigned int payload_len;
   int size;
+  delete_sa_counter++;
   
   TTCN_Logger::log( TTCN_DEBUG,"###### Deleting SA from the database:");
   payload_len = NLA_ALIGN(sizeof(struct xfrm_usersa_id))
@@ -247,10 +312,11 @@ XFRM__Result f__XFRM__add__policy(const SPAddInfo& pol_info){
   unsigned int payload_len;
   int size;
   int numberOfTmpls = pol_info.tmpl().size_of();
+  add_policy_counter++;
 
   TTCN_Logger::log( TTCN_DEBUG,"###### Adding new policies to the database:");
   payload_len = NLA_ALIGN(sizeof(struct xfrm_userpolicy_info))
-                   +(NLA_HDRLEN+NLA_ALIGN(sizeof(struct xfrm_user_tmpl)))*numberOfTmpls;
+                   +NLA_HDRLEN+(NLA_ALIGN(sizeof(struct xfrm_user_tmpl)))*numberOfTmpls;
   size = NLMSG_SPACE(payload_len);
 
   Message msg = Message(size);
@@ -269,6 +335,7 @@ XFRM__Result f__XFRM__delete__policy(const SPDelInfo& pol_info){
   unsigned long spi = 0;
   unsigned int payload_len;
   int size;
+  delete_policy_counter++;
 
   TTCN_Logger::log( TTCN_DEBUG,"###### Deleting policies from the database:");
   payload_len = NLA_ALIGN(sizeof(struct xfrm_userpolicy_id));

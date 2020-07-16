@@ -1,17 +1,15 @@
-/******************************************************************************
-* Copyright (c) 2000-2019 Ericsson Telecom AB
-* All rights reserved. This program and the accompanying materials
-* are made available under the terms of the Eclipse Public License v2.0
-* which accompanies this distribution, and is available at
-* https://www.eclipse.org/org/documents/epl-2.0/EPL-2.0.html
-
-******************************************************************************/
+///////////////////////////////////////////////////////////////////////////////
+//
+// Copyright (c) 2000-2020 Ericsson Telecom AB
+//
+// All rights reserved. This program and the accompanying materials
+// are made available under the terms of the Eclipse Public License v2.0
+// which accompanies this distribution, and is available at
+// https://www.eclipse.org/org/documents/epl-2.0/EPL-2.0.html
 ///////////////////////////////////////////////////////////////////////////////
 //
 //  File:               TCCEncoding_Functions.ttcn
 //  Description:        TCC Useful Functions: Message Encoding Functions.
-//  Rev:                R36B
-//  Prodnr:             CNL 113 472
 //
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -286,6 +284,53 @@ function f_encode_MobileL3_CalledPartyBCDNumber
 }
 
 ////////////////////////////
+// Base64 (RFC 4648)      //
+////////////////////////////
+
+///////////////////////////////////////////////////////////////////////////////
+//  Function: enc_Base64
+// 
+//  Purpose:
+//    Encode message to Base64 format (RFC 4648)
+//
+//  Parameters:
+//    p_msg - *in* *octetstring* - message to encode
+// 
+//  Return Value:
+//    charstring - encoded message
+//
+//  Errors:
+//    - 
+// 
+//  Detailed description:
+//    -
+// 
+///////////////////////////////////////////////////////////////////////////////
+external function enc_Base64(in octetstring p_msg, in BaseEncoding_Alphabet p_alphabet:=Base64_Default) return charstring;
+
+///////////////////////////////////////////////////////////////////////////////
+//  Function: dec_Base64
+// 
+//  Purpose:
+//    Decode message from Base64 format (RFC 4648)
+//
+//  Parameters:
+//    p_b64 - *in* *charstring* - message to decode
+// 
+//  Return Value:
+//    octetstring - decoded message
+//
+//  Errors:
+//    - 
+// 
+//  Detailed description:
+//    -
+// 
+///////////////////////////////////////////////////////////////////////////////
+external function dec_Base64(in charstring p_b64, in BaseEncoding_Alphabet p_alphabet:=Base64_Default) return octetstring;
+
+
+////////////////////////////
 // MIME Base64 (RFC 2045) //
 ////////////////////////////
 
@@ -294,6 +339,8 @@ function f_encode_MobileL3_CalledPartyBCDNumber
 // 
 //  Purpose:
 //    Encode message to MIME Base64 format (RFC 2045)
+//    The encoded stream epresented in lines of no more
+//    than 76 characters each.
 //
 //  Parameters:
 //    p_msg - *in* *octetstring* - message to encode
@@ -315,6 +362,8 @@ external function enc_MIME_Base64(in octetstring p_msg) return charstring;
 // 
 //  Purpose:
 //    Decode message from MIME Base64 format (RFC 2045)
+//    The encoded stream epresented in lines of no more
+//    than 76 characters each.
 //
 //  Parameters:
 //    p_b64 - *in* *charstring* - message to decode
@@ -376,6 +425,55 @@ external function enc_LDIF_Base64(in octetstring p_msg) return charstring;
 // 
 ///////////////////////////////////////////////////////////////////////////////
 external function dec_LDIF_Base64(in charstring p_b64) return octetstring;
+
+
+type enumerated BaseEncoding_Alphabet {  Base32_Default (0),    // Defined in RFC4648 Table 3: The Base 32 Alphabet
+                                         Base32_ExtendedHex (1),// Defined in RFC4648 Table 4: The "Extended Hex" Base 32 Alphabet
+                                         Base64_Default (2),    // Defined in RFC4648 Table 1: The Base 64 Alphabet
+                                         Base64_Url (3)         // Defined in RFC4648 Table 2: The "URL and Filename safe" Base 64 Alphabet
+}
+
+///////////////////////////////////////////////////////////////////////////////
+//  Function: enc_Base32
+// 
+//  Purpose:
+//    Encode message to Base32 format (RFC 4648)
+//
+//  Parameters:
+//    p_msg - *in* *octetstring* - message to encode
+// 
+//  Return Value:
+//    charstring - encoded message
+//
+//  Errors:
+//    - 
+// 
+//  Detailed description:
+//    -
+// 
+///////////////////////////////////////////////////////////////////////////////
+external function enc_Base32(in octetstring p_msg, in BaseEncoding_Alphabet p_alphabet:=Base32_Default) return charstring;
+
+///////////////////////////////////////////////////////////////////////////////
+//  Function: dec_Base32
+// 
+//  Purpose:
+//    Decode message from Base32 format (RFC 4648)
+//
+//  Parameters:
+//    p_b64 - *in* *charstring* - message to decode
+// 
+//  Return Value:
+//    octetstring - decoded message
+//
+//  Errors:
+//    - 
+// 
+//  Detailed description:
+//    -
+// 
+///////////////////////////////////////////////////////////////////////////////
+external function dec_Base32(in charstring p_b32, in BaseEncoding_Alphabet p_alphabet:=Base32_Default) return octetstring;
 
 
 //////////////////////////////////////////////////////////
@@ -730,4 +828,38 @@ public function f_enc_TBCD_hex(in hexstring pl_hex) return octetstring
   return vl_oct;
 }
 
-} with {extension "version R36B"}
+
+///////////////////////////////////////////////////////////////////////////////
+//  Function: f_enc_percent
+//
+//  Purpose:
+//    This function encodes the data into percent encoded string as specified in RFC 3986
+//
+//  Parameters:
+//    pl_data- *charstring* - data to be encoded
+//    pl_space_encoding - *charstring* - charstring to be used to encode the space character "+" or "%20"
+//
+//  Return Value:
+//    *charstring* - percent encoded data
+//
+///////////////////////////////////////////////////////////////////////////////
+external function f_enc_percent(in charstring pl_data, in charstring pl_space_encoding := "%20") return charstring
+
+///////////////////////////////////////////////////////////////////////////////
+//  Function: f_dec_percent
+//
+//  Purpose:
+//    This function decodes the data into percent encoded string as specified in RFC 3986
+//
+//  Parameters:
+//    pl_pct_data - *charstring* - percent encoded data
+//    pl_data - *charstring* - decoded string
+//
+//  Return Value:
+//    *integer* - decoding result: 0 - OK, 1 - decoding failed.
+//
+///////////////////////////////////////////////////////////////////////////////
+external function f_dec_percent(in charstring pl_pct_data, out charstring pl_data ) return integer
+
+
+} 
